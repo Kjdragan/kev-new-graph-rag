@@ -92,6 +92,10 @@ class Config:
     def get_gemini_embeddings_model(self) -> str:
         """Get the Gemini embeddings model ID"""
         return self.get("gemini.embeddings.model_id", "embedding-001")
+        
+    def get_gemini_embeddings_dimensionality(self) -> int:
+        """Get the Gemini embeddings output dimensionality"""
+        return self.get("gemini.embeddings.output_dimensionality", 1536)
 
 # Create a default config instance
 config = Config()

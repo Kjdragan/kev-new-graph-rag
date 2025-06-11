@@ -8,6 +8,7 @@ from google import genai
 
 from llama_index.core.embeddings import BaseEmbedding
 from loguru import logger # Use Loguru for logging
+from .config import get_config
 
 class CustomGeminiEmbedding(BaseEmbedding):
     """
@@ -18,16 +19,18 @@ class CustomGeminiEmbedding(BaseEmbedding):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        model_name: str = "gemini-embedding-exp-03-07", # Updated to user-specified model
+        google_api_key: Optional[str] = None,
+        model_name: Optional[str] = None,
         output_dimensionality: Optional[int] = None,
         title: Optional[str] = None,
+        project_id: str = "neo4j-deployment-new1",
+        task_type: Optional[str] = None,
     ) -> None:
         """
         Initialize the Google GenerativeAI embedding model.
 
         Args:
-            api_key: Google API key, will use GOOGLE_API_KEY from environment if not provided
+            google_api_key: Google API key, will use GOOGLE_API_KEY from environment if not provided
             model_name: Google embedding model name
             task_type: Type of task for the embedding, e.g. "RETRIEVAL_DOCUMENT" or "SEMANTIC_SIMILARITY"
             output_dimensionality: Desired dimension of embedding output vector (default is model's full dimensionality)
@@ -36,108 +39,153 @@ class CustomGeminiEmbedding(BaseEmbedding):
         # Initialize Pydantic model first
         super().__init__()
 
-        if api_key is None:
-            api_key = os.environ.get("GOOGLE_API_KEY")
-            if api_key is None:
-                raise ValueError("No API key provided and GOOGLE_API_KEY not found in environment")
+        # Get configuration
+        config = get_config()
+        
+        # Use config values as defaults if not explicitly provided
+        if model_name is None:
+            model_name = config.get_gemini_embeddings_model()
+            logger.debug(f"Using model_name from config: {model_name}")
+            
+        if output_dimensionality is None:
+            output_dimensionality = config.get_gemini_embeddings_dimensionality()
+            logger.debug(f"Using output_dimensionality from config: {output_dimensionality}")
+
+        if google_api_key is None:
+            google_api_key = os.environ.get("GOOGLE_API_KEY")
+            if google_api_key is None:
+                raise ValueError("No Google API key provided and GOOGLE_API_KEY not found in environment")
 
         # Set the model_name directly since it's part of BaseEmbedding
         self.model_name = model_name
-
+        
         # Store Gemini-specific parameters as a separate config object
         # to avoid Pydantic validation errors
         self._gemini_config = {
             "output_dimensionality": output_dimensionality,
+            "title": title,
+            "project_id": project_id,
+            "task_type": task_type
         }
-        self._api_key = api_key
-        self.model_name = model_name # Ensure model_name is stored
-        self._gemini_config = {
-            "output_dimensionality": output_dimensionality, # This might not be directly applicable to client.models.embed_content
-            "title": title # This might not be directly applicable
-        }
+        
+        # Set environment variables for Vertex AI
+        os.environ['GOOGLE_CLOUD_PROJECT'] = self._gemini_config["project_id"]
+        os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
+        os.environ['GOOGLE_GENAI_USE_VERTEXAI'] = 'True'
+        self._google_api_key = google_api_key
         try:
-            self._client = genai.Client(api_key=self._api_key)
+            self._client = genai.Client(api_key=self._google_api_key)
         except Exception as e:
             logger.error(f"Failed to initialize genai.Client: {e}", exc_info=True)
             raise
 
-    def _get_embedding(self, text: str, task_type: Optional[str] = None) -> List[float]:
+    def _get_embedding(
+        self, 
+        text: str, 
+        task_type: Optional[str] = None,
+    ) -> List[float]:
         """
-        Get embedding for a single text using Google's GenerativeAI.
-
+        Generate an embedding for a given text input using Google's GenAI API via Vertex AI.
+        
         Args:
-            text: Text to embed
-
+            text: The text to create an embedding for
+            task_type: Optional task type for embedding optimization. Options include:
+                      - RETRIEVAL_DOCUMENT: For document content to be retrieved
+                      - RETRIEVAL_QUERY: For queries used in retrieval (default)
+                      - QUESTION_ANSWERING: For queries formatted as questions
+                      - FACT_VERIFICATION: For fact verification
+                      - SEMANTIC_SIMILARITY: For text similarity assessment
+                      - CLASSIFICATION: For text classification
+                      - CLUSTERING: For text clustering
+                       
+        
         Returns:
-            List of embedding values as floats
+            A list of floats representing the embedding vector
         """
-        # Extract parameters from our stored config
-        # task_type is now passed as an argument
-        output_dimensionality = self._gemini_config.get("output_dimensionality")
-        title = self._gemini_config.get("title")
-
-        # Set up embedding request parameters for the new SDK
-        model = self.model_name
-        
-        # Prepare EmbedContentConfig if any specific parameters are provided
+        # Prepare EmbedContentConfig parameters
         config_params = {}
-        if task_type:
-            config_params["task_type"] = task_type
-        if title:
-            config_params["title"] = title
-        if output_dimensionality:
-            config_params["output_dimensionality"] = output_dimensionality
-
-        embed_config_obj = None
-        if config_params:
-            embed_config_obj = genai.types.EmbedContentConfig(**config_params)
         
-        try:
-            logger.info(f"Requesting Gemini embedding for model: '{self.model_name}', text: '{text[:70]}...'" )
-            logger.debug(f"Parameters for embed_content: model='{self.model_name}', content='{text[:70]}...', config={embed_config_obj}")
-
-            response = self._client.models.embed_content(
-                model=self.model_name,
-                contents=[text],  # Use 'contents' as a list, even for a single item
-                config=embed_config_obj # Pass the config object if it was created
-            )
-            logger.debug(f"Raw Gemini API response object for text '{text[:70]}...': {response}")
-
-            if response:
-                logger.debug("Condition: 'response' is True.")
-                if hasattr(response, 'embedding'):
-                    logger.debug("Condition: 'hasattr(response, 'embedding')' is True.")
-                    content_embedding = response.embedding
-                    logger.debug(f"Type of content_embedding: {type(content_embedding)}")
-                    logger.debug(f"content_embedding object: {content_embedding}")
-
-                    if hasattr(content_embedding, 'values'):
-                        logger.debug("Condition: 'hasattr(content_embedding, 'values')' is True.")
-                        logger.debug(f"Type of content_embedding.values: {type(content_embedding.values)}")
-                        if isinstance(content_embedding.values, list):
-                            logger.debug("Condition: 'isinstance(content_embedding.values, list)' is True.")
-                            logger.debug(f"Length of content_embedding.values: {len(content_embedding.values)}")
-                            # logger.debug(f"Content of content_embedding.values: {content_embedding.values}") # Potentially too verbose
-                            if content_embedding.values: # Check if list is not empty before slicing
-                                logger.info(f"Successfully received embedding. First 5 dims: {content_embedding.values[:5]}")
-                            else:
-                                logger.info("Successfully received embedding. Values list is empty.")
-                            return content_embedding.values
-                        else:
-                            logger.warning(f"'isinstance(content_embedding.values, list)' is False. Type was: {type(content_embedding.values)}. Embedding: {content_embedding}")
-                    else:
-                        logger.warning(f"'hasattr(content_embedding, 'values')' is False. Embedding: {content_embedding}")
-                else:
-                    logger.warning(f"'hasattr(response, 'embedding')' is False. Response: {response}")
-            else:
-                logger.warning(f"'response' is False or None. Response: {response}")
+        # Use function parameter task_type if provided, otherwise use stored task_type
+        effective_task_type = task_type if task_type else self._gemini_config.get("task_type")
+        
+        # Add task_type if specified
+        if effective_task_type:
+            config_params["task_type"] = effective_task_type
+        
+        # Always set output dimensionality if specified
+        if self._gemini_config.get("output_dimensionality"):
+            config_params["output_dimensionality"] = self._gemini_config["output_dimensionality"]
+        
+        # Add title if provided
+        if self._gemini_config.get("title"):
+            config_params["title"] = self._gemini_config["title"]
             
-            logger.error(f"Failed to extract embedding for text: {text[:100]}... Task type: {task_type}")
-            return [] # Return empty list on failure
+        # Create the config object
+        embed_config_obj = genai.types.EmbedContentConfig(**config_params)
+
+        try:
+            logger.info(f"Requesting Gemini embedding via Vertex AI for model: '{self.model_name}', text: '{text[:70]}...'" )
+            # Truncate config for logging
+            config_str = str(embed_config_obj)[:100] + "..." if len(str(embed_config_obj)) > 100 else str(embed_config_obj)
+            logger.debug(f"Parameters for embed_content: model='{self.model_name}', content='{text[:70]}...', config={config_str}")
+            
+            # Create client and get embedding response using the Vertex AI integration
+            client = genai.Client()
+            response = client.models.embed_content(
+                model=self.model_name,
+                contents=text,
+                config=embed_config_obj
+            )
+            logger.debug(f"Raw Gemini API response object for text '{text[:60]}...'")
+            # Truncate response for logging
+            response_str = str(response)[:100] + "..." if len(str(response)) > 100 else str(response)
+            logger.debug(f"Truncated response: {response_str}")
+
+            # For Google Gemini via Vertex AI, response has 'embeddings' attribute with a list of ContentEmbedding objects
+            # Handle error responses first
+            if isinstance(response, dict) and 'error' in response:
+                error_msg = response.get('error', {}).get('message', 'Unknown API error')
+                error_code = response.get('error', {}).get('code', 'unknown')
+                logger.error(f"API error during embedding generation: {error_code} - {error_msg}")
+                raise ValueError(f"API error during embedding generation: {error_code} - {error_msg}")
+            
+            # Handle successful responses in various formats
+            if hasattr(response, 'embeddings') and len(response.embeddings) > 0:
+                # Get the embedding values from the first ContentEmbedding object in the list
+                embedding_vector = response.embeddings[0].values
+                logger.debug(f"Successfully extracted embedding values from response.embeddings[0].values")
+                # Truncate the embedding for display purposes only
+                vector_str = str(embedding_vector[:5])[:100] + "..." if len(str(embedding_vector[:5])) > 100 else str(embedding_vector[:5])
+                logger.info(f"Successfully received embedding. First 5 dimensions (truncated): {vector_str}")
+                return embedding_vector
+                
+            # Handle the case when response is a dict with 'embedding' key
+            elif isinstance(response, dict) and 'embedding' in response:
+                embedding_vector = response['embedding']
+                logger.debug(f"Successfully extracted embedding from response['embedding']")
+                # Truncate the embedding for display purposes only
+                vector_str = str(embedding_vector[:5])[:100] + "..." if len(str(embedding_vector[:5])) > 100 else str(embedding_vector[:5])
+                logger.info(f"Successfully received embedding. First 5 dimensions (truncated): {vector_str}")
+                return embedding_vector
+                
+            # Handle the case when response is a dict with 'embeddings' key
+            elif isinstance(response, dict) and 'embeddings' in response:
+                embedding_vector = response['embeddings'][0]
+                logger.debug(f"Successfully extracted embedding from response['embeddings'][0]")
+                # Truncate the embedding for display purposes only
+                vector_str = str(embedding_vector[:5])[:100] + "..." if len(str(embedding_vector[:5])) > 100 else str(embedding_vector[:5])
+                logger.info(f"Successfully received embedding. First 5 dimensions (truncated): {vector_str}")
+                return embedding_vector
+            
+            # If we get here, we couldn't extract the embedding
+            else:
+                logger.warning(f"Could not extract embedding from response: {response}")
+                raise ValueError(f"Could not extract embedding from response: {response}")
+            
 
         except Exception as e:
             logger.error(f"Error during embedding generation for text '{text[:50]}...': {str(e)}", exc_info=True)
-            # Re-raise the exception to allow higher-level error handling if needed, 
+            # Re-raise the exception to allow higher-level error handling if needed,
             # or return empty list if preferred to allow continuation.
             # For now, re-raising to make failures more visible during debugging.
             raise

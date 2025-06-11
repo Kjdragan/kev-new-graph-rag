@@ -27,8 +27,7 @@ dependencies = [
     "llama-cloud-services==0.6.30",
     "tenacity>=8.2.0",
     "pydantic>=2.5.0",
-    "supabase>=1.0.0",
-    "llama-index-vector-stores-supabase>=0.1.5",
+    "chromadb>=1.0.12",
 ]
 
 [build-system]

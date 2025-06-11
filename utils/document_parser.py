@@ -63,27 +63,46 @@ class DocumentParser:
         
         try:
             # LlamaParse's .parse() method expects a file path string
-            # and returns a list of Document objects (from llama_index.core.schema)
+            # and returns a JobResult object with a 'pages' attribute containing parsed pages
             # We need to convert these to a more generic dict structure or extract text.
-            parsed_llama_documents = self.parser.parse(str(path_obj))
-            logger.info(f"Successfully parsed {len(parsed_llama_documents)} sections from {path_obj.name}.")
+            job_result = self.parser.parse(str(path_obj))
+            
+            # Handle JobResult object which has 'pages' attribute
+            if hasattr(job_result, 'pages'):
+                parsed_llama_documents = job_result.pages
+                logger.info(f"Successfully parsed {len(parsed_llama_documents)} pages from {path_obj.name}.")
+            else:
+                # Fallback for backward compatibility if the result is directly a list of documents
+                parsed_llama_documents = job_result
+                logger.info(f"Successfully parsed {len(parsed_llama_documents) if hasattr(parsed_llama_documents, '__len__') else 'unknown number of'} sections from {path_obj.name}.")
             
             # Extract text content from each parsed document/section
-            # For now, we'll assume each 'document' has a 'text' attribute.
-            # The actual structure might vary based on LlamaParse version and output.
-            # This part might need refinement based on actual LlamaParse output structure.
+            # Handle different structures that might be returned by LlamaParse
+            # depending on version and configuration
             extracted_data = []
-            for i, doc in enumerate(parsed_llama_documents):
-                if hasattr(doc, 'text'):
+            
+            # Determine if we're dealing with Page objects (newer LlamaParse) or older format
+            for i, item in enumerate(parsed_llama_documents):
+                # Handle Page objects from newer LlamaParse versions
+                if hasattr(item, 'page') and hasattr(item, 'text'):
+                    extracted_data.append({
+                        "page_or_section_index": item.page,  # Use actual page number
+                        "text": item.text,
+                        "metadata": {"page": item.page}
+                    })
+                # Handle Document objects (older LlamaParse versions)
+                elif hasattr(item, 'text'):
                     extracted_data.append({
                         "page_or_section_index": i,
-                        "text": doc.text,
-                        "metadata": doc.metadata if hasattr(doc, 'metadata') else {}
+                        "text": item.text,
+                        "metadata": item.metadata if hasattr(item, 'metadata') else {}
                     })
-                elif isinstance(doc, dict) and 'text' in doc: # If it's already a dict
-                     extracted_data.append(doc)
+                # Handle dictionary format
+                elif isinstance(item, dict) and 'text' in item:
+                    extracted_data.append(item)
                 else:
-                    logger.warning(f"Parsed document section {i} from {path_obj.name} lacks a 'text' attribute. Content: {str(doc)[:100]}...")
+                    logger.warning(f"Parsed document section {i} from {path_obj.name} has unexpected format. Content type: {type(item)}")
+                    logger.debug(f"Content preview: {str(item)[:100]}...")
             
             if not extracted_data:
                 logger.warning(f"LlamaParse returned no text sections for {path_obj.name}.")
@@ -91,7 +110,9 @@ class DocumentParser:
             return extracted_data
         except Exception as e:
             logger.error(f"LlamaParse failed for document {path_obj.name}: {str(e)}")
-            raise
+            # Print more detailed debugging info about the exception
+            logger.debug(f"Exception type: {type(e)}, Details: {repr(e)}")
+            return []
 
     def parse_file_to_concatenated_text(self, file_path: Union[str, Path]) -> str:
         """Parse a document and concatenate text from all sections/pages.

@@ -32,19 +32,25 @@ class ChromaIngester:
     def _init_client(self):
         """Initialize the ChromaDB client with latest API."""
         try:
-            # Modern auth approach for ChromaDB
-            auth_credentials = None
+            # Modern auth approach for ChromaDB using Settings
             if self.config.auth_enabled:
-                auth_credentials = {
-                    "username": self.config.username,
-                    "password": self.config.password
-                }
-            
-            return chromadb.HttpClient(
-                host=self.config.host,
-                port=self.config.port,
-                auth_credentials=auth_credentials if self.config.auth_enabled else None
-            )
+                # Use Settings for authentication with basic auth provider
+                settings = chromadb.Settings(
+                    chroma_client_auth_provider="chromadb.auth.basic_authn.BasicAuthClientProvider",
+                    chroma_client_auth_credentials=f"{self.config.username}:{self.config.password}"
+                )
+                
+                return chromadb.HttpClient(
+                    host=self.config.host,
+                    port=self.config.port,
+                    settings=settings
+                )
+            else:
+                # No authentication
+                return chromadb.HttpClient(
+                    host=self.config.host,
+                    port=self.config.port
+                )
         except Exception as e:
             logger.error(f"Failed to initialize ChromaDB client: {e}")
             raise
@@ -57,17 +63,27 @@ class ChromaIngester:
                 name=self.config.collection_name,
                 metadata={
                     "description": "Document collection for kev-graph-rag",
-                    "embedding_dimension": self.embedding_model.config.dimensions,
+                    "embedding_dimension": str(self.embedding_model._gemini_config.get("output_dimensionality", 1024)),
                     "similarity": "cosine"  # Using cosine for Gemini embeddings
                 },
                 # Create collection with optimized indexing settings
-                embedding_function=None,  # We'll handle embeddings manually
-                tenant="default",
-                database="default"
+                embedding_function=None  # We'll handle embeddings manually
             )
         except Exception as e:
             logger.error(f"Failed to get/create collection: {e}")
             raise
+            
+    def get_or_create_collection(self) -> Collection:
+        """Public method to get or create the collection for document storage.
+        
+        Returns:
+            The ChromaDB collection for document storage
+        """
+        # Reuse the existing collection if already initialized
+        if hasattr(self, 'collection') and self.collection:
+            return self.collection
+        # Otherwise call the internal method
+        return self._get_or_create_collection()
 
     @retry(
         stop=stop_after_attempt(3),
@@ -129,7 +145,52 @@ class ChromaIngester:
             all_embeddings.extend(batch_embeddings)
         
         return all_embeddings
+        
+    def add_documents(self, documents: List[str], metadatas: Optional[List[Dict[str, Any]]] = None, ids: Optional[List[str]] = None) -> bool:
+        """Add documents to the collection with separate lists for documents, metadatas, and ids.
+        
+        This is a convenience method that matches the interface expected by the test script.
+        
+        Args:
+            documents: List of document texts
+            metadatas: Optional list of metadata dictionaries
+            ids: Optional list of document IDs (will be auto-generated if not provided)
             
+        Returns:
+            bool: True if documents were added successfully
+        """
+        try:
+            # Generate embeddings for the documents
+            embeddings = self.batch_embed_documents(documents)
+            
+            # Use collection's upsert method to add documents
+            self.collection.upsert(
+                documents=documents,
+                metadatas=metadatas,
+                ids=ids,
+                embeddings=embeddings
+            )
+            
+            logger.info(f"Successfully added {len(documents)} documents to ChromaDB")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to add documents to ChromaDB: {e}")
+            raise
+            
+    def count_documents(self) -> int:
+        """Get the number of documents in the collection.
+        
+        Returns:
+            int: Number of documents in the collection
+        """
+        try:
+            # Get collection count using ChromaDB's get_collection API
+            return self.collection.count()
+        except Exception as e:
+            logger.error(f"Failed to get document count: {e}")
+            return 0
+    
     def search(self, 
                query: str, 
                n_results: int = 5, 

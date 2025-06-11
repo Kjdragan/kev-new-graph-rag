@@ -527,3 +527,44 @@ project's progress for seamless continuation.
 
 DO NOT BUILD IN THIS DIRECTORY. C:\Users\kevin\repos\kev_adv_rag IT IS FOR
 REFERENCE ONLY.
+
+---
+
+## Phase 1, Task 3.7: Environment Configuration Consolidation (Date: 2025-06-11)
+
+- **Task**: Consolidate environment variables and update Docker configuration.
+- **Status**: Completed.
+- **Details**:
+  - Removed `.env.template` in favor of using the existing `.env` file
+  - Updated `docker-compose.yml` to use environment variables from `.env` file instead of hardcoded values
+  - Confirmed that `pyproject.toml` already includes the `chromadb` dependency (v1.0.12)
+- **Learnings**:
+  - Environment variable standardization simplifies Docker container configuration
+  - Using environment variables in Docker Compose improves security and maintainability
+  - Centralizing configuration in a single `.env` file reduces potential inconsistencies
+- **Next Steps**:
+  - Add any missing documentation for ChromaDB Docker container usage
+  - Implement the orchestration script for end-to-end document ingestion
+  - Begin writing tests for the integration between components
+
+---
+
+## Phase 1, Task 4: Orchestration Script Development (Date: 2025-06-11)
+
+- **Task**: Develop an end-to-end orchestration script for document processing pipeline.
+- **Status**: Completed.
+- **Details**:
+  - Created `scripts/ingest_documents.py` with comprehensive pipeline orchestration
+  - Implemented command-line arguments for flexible execution modes
+  - Added robust error handling with graceful degradation
+  - Integrated logging with configurable verbosity levels
+  - Added progress tracking with rich terminal output
+- **Learnings**:
+  - Pipeline design requires careful consideration of failure modes at each stage
+  - Asynchronous processing significantly improves throughput for I/O-bound operations
+  - Stateful progress tracking helps with resumability for large document collections
+  - Separating configuration from execution logic improves testability
+- **Next Steps**:
+  - Create comprehensive test suite for the orchestration script
+  - Document usage patterns in the project README
+  - Begin implementation of the query interface components
