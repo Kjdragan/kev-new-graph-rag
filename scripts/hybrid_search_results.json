@@ -1,0 +1,10 @@
+[
+  {
+    "query": "What tools are used in the Kevin-Graph-RAG project?",
+    "answer": "I don't have enough information to answer this question accurately.",
+    "graph_results_count": 0,
+    "vector_results_count": 0,
+    "time_ms": 229.7980785369873,
+    "error": "'GenerationConfig' object has no attribute 'tools'; Vector search error: \"'error'\""
+  }
+]

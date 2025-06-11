@@ -1,0 +1,17 @@
+
+            Graph-based RAG (Retrieval Augmented Generation) combines knowledge graphs with traditional 
+            vector search for more comprehensive information retrieval. Unlike standard RAG systems that 
+            rely solely on embedding similarity, graph-based RAG leverages the structured relationships 
+            between entities to provide more accurate and contextual information retrieval.
+            
+            Key benefits of graph-based RAG include:
+            1. Relationship awareness: Understanding connections between entities
+            2. Structured reasoning: Following logical paths through the knowledge graph
+            3. Better factual grounding: Explicit relationship representation reduces hallucination
+            4. Enhanced context: Leveraging both graph structure and semantic content
+            
+            The Kevin-Graph-RAG project implements a hybrid search approach that combines Neo4j knowledge 
+            graphs with vector embeddings from Google's generative AI models. This combination provides 
+            both structured relationship traversal and semantic similarity search for comprehensive 
+            question answering.
+            

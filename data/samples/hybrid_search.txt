@@ -1,0 +1,19 @@
+
+            Hybrid search in the context of RAG systems refers to combining multiple retrieval methods to 
+            enhance the quality and relevance of retrieved information. The primary hybrid approach in 
+            the Kevin-Graph-RAG project combines knowledge graph traversal with vector similarity search.
+            
+            The hybrid search process works as follows:
+            1. Query Analysis: The input query is analyzed to extract entities, relationships, and semantic meaning
+            2. Graph Traversal: The knowledge graph is queried using the extracted entities and relationships
+            3. Vector Search: In parallel, vector embeddings are used to find semantically similar content
+            4. Result Combination: Results from both approaches are combined based on relevance
+            5. Response Generation: An LLM synthesizes a final response using the combined information
+            
+            This hybrid approach overcomes limitations of either method alone:
+            - Graph traversal provides precise relationship information but may miss content without explicit connections
+            - Vector search provides semantic similarity but lacks structured relationship understanding
+            - Combined, they offer both precision and recall for comprehensive information retrieval
+            
+            The implementation uses Neo4j for graph operations and Google's Generative AI models for embeddings and reasoning.
+            

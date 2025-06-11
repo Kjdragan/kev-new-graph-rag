@@ -1,0 +1,29 @@
+# Kevin's Graph-RAG Configuration
+# Contains settings for all models and services used
+
+# Gemini model configuration
+gemini:
+  models:
+    # Pro model - for complex reasoning tasks
+    pro:
+      model_id: "gemini-2.5-pro-preview-06-05"
+      thinking_budget: 1024  # Default thinking budget for Pro model
+    
+    # Flash model - for faster, general-purpose tasks
+    flash:
+      model_id: "gemini-2.5-flash-preview-05-20" 
+      thinking_budget: 0  # Default to no thinking for Flash model
+  
+  # Default embeddings model
+  embeddings:
+    model_id: "gemini-embedding-exp-03-07"
+
+# Neo4j configuration
+neo4j:
+  retry:
+    max_retries: 3
+    delay_seconds: 1.0
+
+# Logging configuration
+logging:
+  level: "INFO"

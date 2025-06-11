@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"name": "kev-graph-rag",
+			"path": "."
+		},
+		{
+			"name": "graphiti",
+			"path": "../graphiti"
+		},
+		{
+			"name": "kev_adv_rag",
+			"path": "../kev_adv_rag"
+		}
+	],
+	"settings": {}
+}

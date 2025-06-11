@@ -1,0 +1,25 @@
+version: '3.9'
+
+services:
+  chroma:
+    image: chromadb/chroma:latest
+    volumes:
+      - chroma-data:/chroma/data
+    ports:
+      - "8000:8000"
+    environment:
+      - CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER=chromadb.auth.token.TokenAuthCredentialsProvider
+      - CHROMA_SERVER_AUTH_CREDENTIALS=admin:admin123
+      - CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER_HEADER_NAME=Authorization
+      - CHROMA_SERVER_AUTH_ENABLED=true
+      - ALLOWED_ORIGINS=*
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  chroma-data:
+    driver: local

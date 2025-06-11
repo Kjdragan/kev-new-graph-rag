@@ -1,0 +1,14 @@
+
+            Kevin Smith is a software engineer specializing in knowledge graphs and natural language 
+            processing. He currently works at Acme Technologies where he leads the Graph Database 
+            Solutions team. Kevin has published several papers on the integration of knowledge graphs 
+            with large language models and has contributed to open-source projects in the RAG space.
+            
+            Kevin's current project, Kevin-Graph-RAG, focuses on implementing hybrid search capabilities 
+            that combine knowledge graph traversal with vector similarity search. The project uses 
+            Graphiti for temporal knowledge graphs, Neo4j AuraDB as the persistent graph store, 
+            Llama-Index for knowledge graph construction and querying, and Google Gemini Pro for reasoning.
+            
+            Prior to joining Acme Technologies, Kevin worked at DataGraph Inc. where he helped develop 
+            graph-based solutions for financial services clients.
+            

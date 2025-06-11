@@ -1,0 +1,50 @@
+[project]
+name = "kev-graph-rag"
+version = "0.1.0"
+description = "A comprehensive Graph RAG system utilizing Graphiti, Neo4j, Llama-Index, and Gemini."
+readme = "README.md"
+authors = [
+    { name = "Kevin Dragan", email = "kevin.dragan@outlook.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "google-genai>=1.19.0",
+    "graphiti-core[google-genai]>=0.11.6",
+    "llama-index>=0.12.41",
+    "llama-index-core>=0.12.41",
+    "llama-index-embeddings-google-genai>=0.2.0",
+    "llama-index-graph-stores-neo4j>=0.4.6",
+    "llama-index-llms-gemini>=0.5.0",
+    "llama-index-llms-google-genai>=0.2.1",
+    "loguru>=0.7.3",
+    "neo4j>=5.28.1",
+    "proto-plus>=1.26.1",
+    "python-dotenv>=1.1.0",
+    "pyyaml>=6.0.2",
+    "scikit-learn>=1.7.0",
+    "google-auth>=2.22.0",
+    "google-api-python-client>=2.100.0",
+    "llama-cloud-services==0.6.30",
+    "tenacity>=8.2.0",
+    "pydantic>=2.5.0",
+    "supabase>=1.0.0",
+    "llama-index-vector-stores-supabase>=0.1.5",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",
+    "pytest-cov>=6.1.1",
+    "pytest-mock>=3.14.1",
+    "pytest-xdist>=3.7.0",
+]
+
+[project.scripts]
+kev-graph-rag = "kev_graph_rag:main"
