@@ -79,8 +79,8 @@ def gemini_models():
     if not api_key:
         pytest.skip("Google API key not configured in .env file")
 
-    # Configure Gemini
-    genai.configure(api_key=api_key)
+    # Configure Gemini - using direct client initialization instead of deprecated configure method
+    client = genai.Client(api_key=api_key)
 
     # Get configuration
     config = get_config()

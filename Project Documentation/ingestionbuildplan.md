@@ -1,7 +1,7 @@
 # Kev-Graph-RAG: Unified Google Drive Ingestion Build Plan (ChromaDB & Neo4j)
 
-**Version:** 2.0
-**Date:** 2025-06-09
+**Version:** 2.1
+**Date:** 2025-06-11
 
 ## 1. Overview & Strategy
 
@@ -37,9 +37,9 @@ This phase focuses on creating the foundational Python modules in `kev-graph-rag
 *   **Task 2.5: Dependency Management**
     *   [x] Add `google-auth`, `google-api-python-client`, `llama-cloud-services`, `pydantic`, `loguru`, `tenacity`.
     *   [x] Add/Verify `neo4j` (driver), `google-genai`.
-    *   [ ] Remove `supabase`, `llama-index-vector-stores-supabase` dependencies.
-    *   [ ] Add `chromadb` dependency.
-    *   [ ] Run `uv sync` after updates.
+    *   [x] Remove `supabase`, `llama-index-vector-stores-supabase` dependencies.
+    *   [x] Add `chromadb` dependency (v1.0.12 confirmed in pyproject.toml).
+    *   [x] Run `uv sync` after updates.
 
 ## 3. ChromaDB Docker Setup and Integration
 
@@ -47,8 +47,8 @@ This phase focuses on setting up and integrating ChromaDB for vector storage.
 
 *   **Task 3.1: Docker Setup for ChromaDB**
     *   [x] Create `docker-compose.yml` with ChromaDB configuration.
-    *   [ ] Add documentation for starting the ChromaDB Docker container.
-    *   [ ] Add environment variables for ChromaDB configuration to `.env.template`.
+    *   [x] Add documentation for starting the ChromaDB Docker container in README.md.
+    *   [x] Added environment variables for ChromaDB configuration to primary `.env` file (removed `.env.template` in favor of centralized configuration).
 *   **Task 3.2: ChromaDB Ingester Utility (`utils/chroma_ingester.py`)**
     *   [x] Create `ChromaIngester` class.
     *   [x] Implement methods to initialize ChromaDB client and collection.
@@ -75,42 +75,93 @@ This phase focuses on storing processed documents and their embeddings into Neo4
 This script will manage the end-to-end ingestion pipeline for both ChromaDB and Neo4j.
 
 *   **Task 5.1: Setup and Configuration**
-    *   [ ] Implement argument parsing (e.g., for GDrive `folder_id`, `.env` path).
-    *   [ ] Load configurations from `.env` and CLI arguments for GDrive, LlamaParse, ChromaDB, Neo4j, and Embeddings.
-    *   [ ] Initialize: `GDriveReader`, `DocumentParser`, `CustomGeminiEmbedding`, `ChromaIngester`, `Neo4jIngester`.
+    *   [x] Implement argument parsing (e.g., for GDrive `folder_id`, `.env` path).
+    *   [x] Load configurations from `.env` and CLI arguments for GDrive, LlamaParse, ChromaDB, Neo4j, and Embeddings.
+    *   [x] Initialize: `GDriveReader`, `DocumentParser`, `CustomGeminiEmbedding`, `ChromaIngester`, `Neo4jIngester`.
 *   **Task 5.2: Initial Neo4j Setup**
-    *   [ ] Call `neo4j_ingester.ensure_constraints_and_indices()`.
+    *   [x] Call `neo4j_ingester.ensure_constraints_and_indices()`.
 *   **Task 5.3: Main Processing Loop**
-    *   [ ] Fetch list of files from Google Drive using `GDriveReader`.
-    *   [ ] For each file:
-        *   Download/read file content.
-        *   Create a temporary local path for the file if LlamaParse requires it.
-        *   Parse the file using `document_parser.parse_file()` to get structured page data or LlamaIndex `Document` objects.
-        *   Log progress and any errors.
+    *   [x] Fetch list of files from Google Drive using `GDriveReader`.
+    *   [x] For each file:
+        *   [x] Download/read file content.
+        *   [x] Create a temporary local path for the file if LlamaParse requires it.
+        *   [x] Parse the file using `document_parser.parse_file()` to get structured page data or LlamaIndex `Document` objects.
+        *   [x] Log progress and any errors.
         *   **ChromaDB Ingestion Sub-Path:**
-            *   Convert parsed data to document dictionaries with unique IDs, text content, and metadata.
-            *   Call `chroma_ingester.ingest_documents()` with these documents.
+            *   [x] Convert parsed data to document dictionaries with unique IDs, text content, and metadata.
+            *   [x] Call `chroma_ingester.ingest_documents()` with these documents.
         *   **Neo4j Ingestion Sub-Path:**
-            *   Concatenate all text from the parsed sections/pages of the current GDrive file using `document_parser.parse_file_to_concatenated_text()`.
-            *   Generate a single embedding for this concatenated text using `custom_gemini_embedding._get_text_embedding()` (1024 dims).
-            *   Prepare `DocumentIngestionData` (using GDrive file ID as `doc_id`, filename, concatenated text, generated embedding, and other metadata from GDrive/parsing).
-            *   Call `neo4j_ingester.ingest_document()`.
-        *   Clean up temporary downloaded files.
+            *   [x] Concatenate all text from the parsed sections/pages of the current GDrive file using `document_parser.parse_file_to_concatenated_text()`.
+            *   [x] Generate a single embedding for this concatenated text using `custom_gemini_embedding._get_text_embedding()` (1024 dims).
+            *   [x] Prepare `DocumentIngestionData` (using GDrive file ID as `doc_id`, filename, concatenated text, generated embedding, and other metadata from GDrive/parsing).
+            *   [x] Call `neo4j_ingester.ingest_document()`.
+        *   [x] Clean up temporary downloaded files.
 *   **Task 5.4: Logging and Error Handling**
-    *   [ ] Implement robust logging throughout the script.
-    *   [ ] Implement error handling and retry mechanisms where appropriate.
+    *   [x] Implement robust logging throughout the script with configurable verbosity levels.
+
+## 6. Test Suite Implementation
+
+This phase focuses on implementing a comprehensive test suite for the ingestion pipeline to ensure reliability and maintainability.
+
+*   **Task 6.1: Test Suite Organization**
+    *   [x] Set up test directory structure separating unit, integration, and end-to-end tests.
+    *   [x] Configure pytest markers in pytest.ini (`unit`, `integration`, `e2e`).
+    *   [x] Create comprehensive test suite documentation in `tests/README.md`.
+*   **Task 6.2: Unit Tests**
+    *   [x] Implement tests for `CustomGeminiEmbedding` with proper mocking of Google GenAI client.
+    *   [x] Implement tests for `Neo4jIngester` with mocked Neo4j driver and session.
+    *   [x] Implement tests for `ChromaIngester` with mocked ChromaDB client.
+    *   [x] Implement tests for `DocumentParser` with mocked LlamaParse API.
+    *   [x] Implement tests for `GDriveReader` with mocked Google Drive API.
+*   **Task 6.3: Integration Tests**
+    *   [x] Create `tests/integration/test_ingestion_pipeline.py`.
+    *   [x] Test document processing pipeline (parse → embed → store).
+    *   [x] Test error recovery and retry mechanisms across components.
+*   **Task 6.4: Edge Case Tests**
+    *   [x] Create `tests/utils/test_edge_cases.py`.
+    *   [x] Test large document handling (1000+ pages, 5000-dim embeddings).
+    *   [x] Test unusual/malformed input formats.
+    *   [x] Test API rate limit handling and backoff strategies.
+*   **Task 6.5: End-to-End Tests**
+    *   [x] Create `tests/test_end_to_end_ingestion.py`.
+    *   [x] Test complete document ingestion workflow from Google Drive to storage.
+    *   [x] Test error handling for pipeline failures.
+*   **Task 6.6: Test Runner Integration**
+    *   [x] Ensure all tests run via the Python runner script with `uv run`.
+    *   [x] Update existing tests to use proper test markers and mocking patterns.
+    *   [x] Implement error handling and retry mechanisms where appropriate.
+    *   [x] Add progress tracking with rich terminal output.
 
 ## 6. Testing and Validation
 
-*   **Task 6.1: Unit Tests**
-    *   [ ] Write unit tests for `GDriveReader`, `DocumentParser`, `ChromaIngester`, `Neo4jIngester`.
-*   **Task 6.2: Integration Tests**
-    *   [ ] Test the GDrive -> LlamaParse -> ChromaDB path.
-    *   [ ] Test the GDrive -> LlamaParse -> Neo4j path.
-*   **Task 6.3: End-to-End Testing**
-    *   [ ] Run the full `ingest_gdrive_documents.py` script with sample GDrive documents.
-    *   [ ] Verify data integrity in ChromaDB (check text, embeddings, metadata, vector search works).
-    *   [ ] Verify data integrity in Neo4j (check `:Document` nodes, properties, vector index, vector search works via `hybrid_search_demo.py`).
+*   **Task 6.1: Test Infrastructure Setup** - **[IN PROGRESS]**
+    *   [x] Create structured test directories with appropriate separation of unit, integration, and e2e tests.
+    *   [x] Set up pytest.ini with custom markers (`unit`, `integration`, `e2e`).
+    *   [x] Configure test coverage reporting with pytest-cov.
+    *   [x] Create mock implementations for external dependencies (Google Drive API, LlamaParse, databases).
+    *   [x] Implement fixture factories for test data generation.
+    *   [x] Add helper utilities for vector comparison and verification.
+
+*   **Task 6.2: Unit Tests** - **[COMPLETED]**
+    *   [x] Create test framework with proper fixtures and setup.
+    *   [x] Write tests for `GDriveReader` with mocked Google API responses.
+    *   [x] Write tests for `DocumentParser` with sample document content and expected output structures.
+    *   [x] Write tests for `CustomGeminiEmbedding` with mocked embedding API responses.
+    *   [x] Write tests for `ChromaIngester` with mocked ChromaDB client.
+    *   [x] Write tests for `Neo4jIngester` with mocked Neo4j driver and session.
+
+*   **Task 6.3: Integration Tests** - **[COMPLETED]**
+    *   [x] Test the GDrive -> LlamaParse integration with sample files.
+    *   [x] Test the LlamaParse -> Embedding generation integration.
+    *   [x] Test the Embedding -> ChromaDB ingestion path.
+    *   [x] Test the Embedding -> Neo4j ingestion path.
+    *   [x] Test error handling and recovery throughout the pipeline.
+
+*   **Task 6.4: End-to-End Testing** - **[COMPLETED]**
+    *   [x] Run the full `ingest_gdrive_documents.py` script with sample GDrive documents.
+    *   [x] Verify data integrity in ChromaDB (check text, embeddings, metadata, vector search works).
+    *   [x] Verify data integrity in Neo4j (check `:Document` nodes, properties, vector index, vector search works via `hybrid_search_demo.py`).
+    *   [x] Test performance and scalability with larger document batches.
 
 ## 7. Future Considerations (Post-MVP)
 

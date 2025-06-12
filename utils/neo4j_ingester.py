@@ -43,6 +43,25 @@ class Neo4jIngester:
         Args:
             doc_data: The document data to ingest.
         """
+        # Extract metadata fields to direct properties
+        metadata_properties = {}
+        metadata_parts = []
+        
+        # Extract any metadata fields as direct properties
+        if doc_data.metadata:
+            for key, value in doc_data.metadata.items():
+                # Convert any non-primitive values to strings
+                if isinstance(value, (dict, list)):
+                    metadata_properties[f"metadata_{key}"] = str(value)
+                    metadata_parts.append(f"{key}: {str(value)}")
+                else:
+                    # Use primitive values directly
+                    metadata_properties[f"metadata_{key}"] = value
+                    metadata_parts.append(f"{key}: {value}")
+        
+        # Create a JSON-like string of the metadata for reference
+        metadata_str = "{" + ", ".join(metadata_parts) + "}" if metadata_parts else "{}"
+            
         query = (
             "MERGE (d:Document {doc_id: $doc_id}) "
             "ON CREATE SET "
@@ -54,8 +73,18 @@ class Neo4jIngester:
             "  d.gdrive_id = $gdrive_id, "
             "  d.gdrive_webview_link = $gdrive_webview_link, "
             "  d.parsed_timestamp = datetime($parsed_timestamp), "
-            "  d.metadata = $metadata, "
-            "  d.created_at = datetime() "
+            "  d.metadata_str = $metadata_str"
+        )
+        
+        # Add metadata fields as individual properties
+        if metadata_properties:
+            for key in metadata_properties:
+                query += f",\n  d.{key} = ${key}"
+        
+        # Complete the query
+        query += ",\n  d.created_at = datetime() "
+        
+        query += (
             "ON MATCH SET "
             "  d.filename = $filename, "
             "  d.content = $content, "
@@ -63,8 +92,18 @@ class Neo4jIngester:
             "  d.mime_type = $mime_type, "
             "  d.gdrive_webview_link = $gdrive_webview_link, "
             "  d.parsed_timestamp = datetime($parsed_timestamp), "
-            "  d.metadata = $metadata, "
-            "  d.updated_at = datetime() "
+            "  d.metadata_str = $metadata_str"
+        )
+        
+        # Add metadata fields as individual properties on match
+        if metadata_properties:
+            for key in metadata_properties:
+                query += f",\n  d.{key} = ${key}"
+        
+        # Complete the query
+        query += ",\n  d.updated_at = datetime() "
+        
+        query += (
             "RETURN d.doc_id AS id, d.updated_at AS updatedAt, d.created_at AS createdAt"
         )
 
@@ -78,8 +117,11 @@ class Neo4jIngester:
             "gdrive_id": doc_data.gdrive_id or doc_data.doc_id, # Use doc_id if gdrive_id not explicitly set
             "gdrive_webview_link": doc_data.gdrive_webview_link,
             "parsed_timestamp": doc_data.parsed_timestamp.isoformat(),
-            "metadata": doc_data.metadata
+            "metadata_str": metadata_str
         }
+        
+        # Add metadata properties to params
+        params.update(metadata_properties)
 
         try:
             with self.driver.session() as session:
@@ -88,6 +130,10 @@ class Neo4jIngester:
                 if record:
                     action = "updated" if record["updatedAt"] else "created"
                     logger.info(f"Successfully {action} :Document node with doc_id '{record['id']}' in Neo4j.")
+                    
+                    # Log the metadata properties that were added
+                    if metadata_properties:
+                        logger.debug(f"Added {len(metadata_properties)} metadata properties to document {record['id']}: {', '.join(metadata_properties.keys())}")
                 else:
                     logger.warning(f"Neo4j MERGE for doc_id '{doc_data.doc_id}' did not return a record.")
         except Exception as e:
