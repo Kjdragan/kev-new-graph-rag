@@ -149,6 +149,37 @@ You can monitor the progress in the console and detailed logs in the `logs` dire
   - `start_chroma_docker.ps1`: ChromaDB container management
   - `ingest_gdrive_documents.py`: End-to-end ingestion orchestration
 
+- `tests/`: Comprehensive test suite
+  - `tests/utils/`: Unit tests for individual components
+  - `tests/integration/`: Integration tests between components
+  - `tests/test_end_to_end_ingestion.py`: End-to-end workflow tests
+  - `tests/README.md`: Detailed test suite documentation
+
+## Testing
+
+The project includes a comprehensive test suite covering unit tests, integration tests, and end-to-end tests. All tests must be run using the `uv` package manager.
+
+### Running Tests
+
+```powershell
+# Run all tests
+uv run python run_tests.py --all
+
+# Run only unit tests
+uv run python run_tests.py --unit
+
+# Run only integration tests
+uv run python run_tests.py --integration
+
+# Run specific module tests
+uv run python run_tests.py --module tests.utils.test_edge_cases
+
+# Generate coverage report
+uv run python run_tests.py --all --coverage
+```
+
+For detailed information about the test suite organization, fixtures, and best practices, refer to `tests/README.md`.
+
 - `docs/`: Documentation files
   - `chromadb_docker_usage.md`: ChromaDB setup instructions
 
