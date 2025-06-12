@@ -1,0 +1,43 @@
+# Project Build Progress: Comprehensive Graph RAG System (Continued)
+
+## Phase 1, Tasks 4-5: GraphExtractor Integration & Ingestion Pipeline Update (Date: 2025-06-11)
+
+- **Task**: Successfully integrate `GraphExtractor` into the `ingest_gdrive_documents.py` script, including resolving asynchronous testing issues, refining ontology templates, and updating the ingestion logic.
+- **Status**: Completed (Ingestion script updated, pending end-to-end test run).
+- **Details**:
+    - **Pytest-Asyncio & Test Fixes**:
+        - Resolved `pytest-asyncio` plugin recognition issues by ensuring correct installation (`uv add pytest-asyncio --upgrade-package pytest-asyncio`) and configuration (`pyproject.toml` optional dependencies, `pytest.ini`). Version 1.0.0 was confirmed as working.
+        - Fixed `GraphExtractor` unit tests (`tests/graph_extraction/test_extractor.py`):
+            - Updated mocks from `load_config` to `get_config`.
+            - Corrected `Episode` to `EpisodicNode` import.
+            - Fixed `AssertionError` with `model_dump` mock by using `return_value`.
+        - All async tests for `GraphExtractor` are now passing.
+    - **Ontology Template Refinement**:
+        - Standardized export lists in `src/ontology_templates/generic_ontology.py` and `src/ontology_templates/financial_report_ontology.py` to `NODES` and `RELATIONSHIPS`.
+        - Updated `financial_report_ontology.py`:
+            - Renamed `Organization` to `Company`.
+            - Added `ReportSection`, `KeyFinding` node types.
+            - Added `DISCUSSES_METRIC`, `HAS_FINDING`, `MENTIONS_COMPANY` relationship types.
+            - Removed redundant `frozen=True` from `Field` definitions.
+    - **Ingestion Script (`scripts/ingest_gdrive_documents.py`) Update**:
+        - Added `--template` command-line argument for dynamic ontology selection.
+        - Implemented `load_ontology_from_template` function using `importlib` to load `NODES` and `RELATIONSHIPS` from specified ontology modules.
+        - Refactored `main` and `process_documents` to be `async` functions, using `asyncio.run(main())` as the entry point.
+        - Integrated `GraphExtractor`:
+            - Instantiated `GraphExtractor` with configuration values.
+            - Replaced old `Neo4jIngester` logic with `await graph_extractor.extract()`.
+            - Ensured `await graph_extractor.close()` is called.
+            - Logic for parsing full document text for `GraphExtractor` was added.
+        - Corrected structural and indentation errors introduced during `replace_file_content` operations by carefully reviewing file content and applying targeted fixes.
+- **Learnings**:
+    - **`pytest-asyncio`**: Requires careful setup. Version 1.0.0 is functional but initial plugin recognition can be tricky. `uv add pytest-asyncio --upgrade-package pytest-asyncio` and checking `pyproject.toml` for correct dependency group (`[project.optional-dependencies]`) and `pytest.ini` for plugin registration are key.
+    - **Mocking**: `MagicMock.return_value` should be used for methods that return values, rather than calling the mock itself if it's meant to simulate a callable that returns something. Patching internal client instantiations (e.g., `graphiti.Graphiti` or `GeminiClient` if done inside methods) requires patching at the point of import within the module under test.
+    - **Ontology Design**: Pydantic models for ontologies need consistent export names (e.g., `NODES`, `RELATIONSHIPS`) for dynamic loading. `frozen=True` in `Field` is often unnecessary if the `Config.frozen = True` is set in the base Pydantic model.
+    - **Dynamic Imports**: `importlib.import_module()` and `getattr()` are effective for loading modules and their attributes based on string names, useful for pluggable components like ontology templates.
+    - **Async Integration**: Converting synchronous scripts to `async` requires changing function definitions (`async def`), `await`ing async calls, and using `asyncio.run()` for the main entry point. Ensure all async resources (like `GraphExtractor`'s underlying connections) are properly closed using `await resource.close()`.
+    - **`replace_file_content` Tool**: Extreme care must be taken with `TargetContent`. Mismatches, even minor, can lead to significant structural errors in the code. Viewing the file content (`view_line_range`) after a problematic replacement is crucial for diagnosing and formulating precise fixes. Small, targeted replacements are generally safer than large ones.
+    - **Full Text for Graph Extraction**: Ensure that the full, concatenated text of a document is passed to `GraphExtractor`, as opposed to page-by-page chunks that might be used for vector embeddings for ChromaDB.
+- **Next Steps**:
+    - Execute the updated `ingest_gdrive_documents.py` script with both generic and financial report templates.
+    - Validate entity and relationship creation in Neo4j.
+    - Proceed to Phase 2: Hybrid Query Engine & UI.

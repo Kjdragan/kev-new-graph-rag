@@ -28,6 +28,8 @@ dependencies = [
     "tenacity>=8.2.0",
     "pydantic>=2.5.0",
     "chromadb>=1.0.12",
+    "pyvis>=0.3.2",
+    "streamlit-agraph>=0.0.45",
 ]
 
 [build-system]
@@ -37,9 +39,10 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "pytest>=8.4.0",
+    "pytest-asyncio>=0.23.0",
     "pytest-cov>=6.1.1",
     "pytest-mock>=3.14.1",
     "pytest-xdist>=3.7.0",
@@ -47,3 +50,11 @@ dev = [
 
 [project.scripts]
 kev-graph-rag = "kev_graph_rag:main"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "pytest-asyncio>=1.0.0",
+]

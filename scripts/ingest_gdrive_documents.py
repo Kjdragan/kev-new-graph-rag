@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime
 from datetime import timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Tuple, Type
 
 import dotenv
 from loguru import logger
@@ -37,6 +37,10 @@ from utils.config_models import (
     IngestionOrchestratorConfig
 )
 from utils.config import Config
+from src.graph_extraction.extractor import GraphExtractor
+from src.ontology_templates.generic_ontology import BaseNode, BaseRelationship # For type hinting
+import importlib
+import asyncio
 
 # Configure logging
 log_dir = Path("logs")
@@ -48,6 +52,31 @@ logger.add(
     retention="7 days",
     level="INFO"
 )
+
+
+def load_ontology_from_template(template_name: str) -> Tuple[List[Type[BaseNode]], List[Type[BaseRelationship]]]:
+    """Dynamically loads NODES and RELATIONSHIPS from the specified ontology template."""
+    try:
+        module_name = f"src.ontology_templates.{template_name}_ontology"
+        ontology_module = importlib.import_module(module_name)
+        
+        nodes = getattr(ontology_module, "NODES", [])
+        relationships = getattr(ontology_module, "RELATIONSHIPS", [])
+        
+        if not nodes and not relationships:
+            logger.warning(f"Ontology template '{template_name}' loaded, but NODES or RELATIONSHIPS lists are empty or missing.")
+        else:
+            logger.info(f"Successfully loaded ontology template: {template_name}_ontology.py")
+            logger.info(f"Found {len(nodes)} node types and {len(relationships)} relationship types.")
+            
+        return nodes, relationships
+    except ImportError:
+        logger.error(f"Ontology template '{template_name}' not found at {module_name}.py. Please ensure the file exists and is correctly named.")
+        raise
+    except AttributeError as e:
+        logger.error(f"Error accessing NODES or RELATIONSHIPS in '{template_name}_ontology.py': {e}")
+        raise
+
 
 def setup_config(env_file: Optional[str] = None) -> IngestionOrchestratorConfig:
     """Load configuration from environment variables and/or config files."""
@@ -113,7 +142,7 @@ def setup_config(env_file: Optional[str] = None) -> IngestionOrchestratorConfig:
     
     return orchestrator_config
 
-def process_documents(config: IngestionOrchestratorConfig, temp_dir: str = "./temp") -> Dict[str, int]:
+async def process_documents(config: IngestionOrchestratorConfig, ontology_nodes: List[Type[BaseNode]], ontology_edges: List[Type[BaseRelationship]], temp_dir: str = "./temp") -> Dict[str, int]:
     """Process documents from Google Drive to ChromaDB and Neo4j.
     
     Returns:
@@ -127,58 +156,17 @@ def process_documents(config: IngestionOrchestratorConfig, temp_dir: str = "./te
     logger.info("Initializing pipeline components...")
     gdrive_reader = GDriveReader(config.gdrive)
     document_parser = DocumentParser(config.llamaparse)
-    
-    # Initialize embedding model with error handling
-    try:
-        # Get Google API key directly from environment variables, not from EmbeddingConfig
-        google_api_key = os.getenv("GOOGLE_API_KEY", "")
-        if not google_api_key:
-            raise ValueError("GOOGLE_API_KEY environment variable is not set")
-            
-        embedding_model = CustomGeminiEmbedding(
+    chroma_ingester = ChromaIngester(config.chromadb, CustomGeminiEmbedding(
             model_name=config.embedding.model_name,
             output_dimensionality=config.embedding.dimensions,
-            google_api_key=google_api_key
-        )
-        # Verify embedding model works by testing a simple embedding
-        test_embedding = embedding_model.embed_query("Test embedding capability")
-        if not test_embedding or len(test_embedding) != config.embedding.dimensions:
-            raise ValueError(f"Embedding model returned invalid embedding dimensions: {len(test_embedding) if test_embedding else 0}, expected {config.embedding.dimensions}")
-        logger.info(f"Embedding model initialized successfully with {config.embedding.dimensions} dimensions")
-    except Exception as e:
-        logger.error(f"Failed to initialize embedding model: {e}")
-        raise
-    
-    # Initialize both ingestion paths with proper error handling
-    try:
-        logger.info("Initializing ChromaDB ingester...")
-        chroma_ingester = ChromaIngester(config.chromadb, embedding_model)
-        # Verify ChromaDB connection by getting collection count
-        collection = chroma_ingester.get_or_create_collection()
-        doc_count = chroma_ingester.count_documents()
-        logger.info(f"ChromaDB ingester initialized successfully. Collection '{config.chromadb.collection_name}' has {doc_count} documents.")
-    except Exception as e:
-        logger.error(f"Failed to initialize ChromaDB ingester: {e}")
-        raise
-        
-    try:
-        logger.info("Initializing Neo4j ingester...")
-        # Create a Neo4j Driver instance from the config
-        neo4j_driver = GraphDatabase.driver(
-            config.neo4j.uri,
-            auth=(config.neo4j.user, config.neo4j.password)
-        )
-        # Pass the driver instance to Neo4jIngester
-        neo4j_ingester = Neo4jIngester(neo4j_driver)
-        logger.info("Neo4j ingester initialized successfully.")
-    except Exception as e:
-        logger.error(f"Failed to initialize Neo4j ingester: {e}")
-        raise
-    
-    # Ensure Neo4j constraints and indices
-    logger.info("Setting up Neo4j constraints and indices...")
-    neo4j_ingester.ensure_constraints_and_indices()
-    
+            google_api_key=config.embedding.google_api_key
+        ))
+    graph_extractor = GraphExtractor(
+        neo4j_uri=config.neo4j.uri,
+        neo4j_user=config.neo4j.user,
+        neo4j_pass=config.neo4j.password,
+        gemini_api_key=config.embedding.google_api_key
+    )
     # List files in Google Drive with error handling
     try:
         logger.info(f"Listing files from Google Drive folder {config.gdrive.folder_id}...")
@@ -235,34 +223,18 @@ def process_documents(config: IngestionOrchestratorConfig, temp_dir: str = "./te
             # Batch ingest to ChromaDB
             chroma_ingester.ingest_documents(chroma_documents)
             
-            # Neo4j Ingestion Path
-            logger.info(f"Ingesting {file_name} to Neo4j...")
-            # For Neo4j, we concatenate all text for a single document embedding
-            concatenated_text = document_parser.parse_file_to_concatenated_text(str(temp_file_path))
+            # GraphExtractor Path for Neo4j
+            logger.info(f"Extracting graph data from {file_name} using template for Neo4j...")
+            full_text_content = document_parser.parse_file_to_concatenated_text(str(temp_file_path))
             
-            # Generate embedding for Neo4j
-            logger.info(f"Generating embedding for Neo4j document {file_name}...")
-            document_embedding = embedding_model.embed_query(concatenated_text)
-            
-            # Create DocumentIngestionData for Neo4j
-            doc_data = DocumentIngestionData(
-                doc_id=file_id,
-                filename=file_name,
-                content=concatenated_text,
-                embedding=document_embedding,
-                source_type="google_drive",
-                mime_type=mime_type,
-                gdrive_id=file_id,
-                gdrive_webview_link=file_info.get('webViewLink', ''),
-                metadata={
-                    "title": file_name,
-                    "ingestion_date": datetime.now().isoformat(),
-                    "source_folder_id": config.gdrive.folder_id
-                }
+            extraction_results = await graph_extractor.extract(
+                text_content=full_text_content,
+                ontology_nodes=ontology_nodes,
+                ontology_edges=ontology_edges,
+                group_id=file_id, 
+                episode_name_prefix=file_name[:50]
             )
-            
-            # Ingest to Neo4j
-            neo4j_ingester.ingest_document(doc_data)
+            logger.info(f"Graph extraction for {file_name} complete. Results: {extraction_results}")
             
             # Clean up temp file if needed
             if temp_file_path.exists():
@@ -278,13 +250,24 @@ def process_documents(config: IngestionOrchestratorConfig, temp_dir: str = "./te
             continue
     
     logger.info(f"Document ingestion complete! Summary: {stats['processed']} processed, {stats['failed']} failed, {stats['skipped']} skipped")
+    
+    # Ensure GraphExtractor connection is closed
+    if 'graph_extractor' in locals() and graph_extractor is not None:
+        try:
+            logger.info("Closing GraphExtractor connection...")
+            await graph_extractor.close()
+            logger.info("GraphExtractor connection closed.")
+        except Exception as e:
+            logger.error(f"Error closing GraphExtractor: {e}")
+            
     return stats
 
-def main():
+async def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Google Drive Document Ingestion Tool")
     parser.add_argument("--env-file", type=str, help="Path to .env file")
     parser.add_argument("--temp-dir", type=str, default="./temp", help="Path for temporary files")
+    parser.add_argument("--template", type=str, default="generic", help="Name of the ontology template to use (e.g., 'generic', 'financial_report')")
     
     args = parser.parse_args()
     
@@ -301,8 +284,11 @@ def main():
             logger.error("Missing LlamaParse API key. Check your .env file.")
             sys.exit(1)
         
+        # Load the specified ontology template
+        ontology_nodes, ontology_edges = load_ontology_from_template(args.template)
+        
         # Process documents
-        stats = process_documents(config, args.temp_dir)
+        stats = await process_documents(config, ontology_nodes, ontology_edges, args.temp_dir)
         
         # Print final summary
         print(f"\nIngestion Summary:")
@@ -320,4 +306,4 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
