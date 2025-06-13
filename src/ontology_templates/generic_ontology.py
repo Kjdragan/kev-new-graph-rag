@@ -8,7 +8,7 @@ class BaseNode(BaseModel):
     Maps to graphiti_core.EntityNode.
     """
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique identifier for the node, maps to EntityNode.uuid")
-    name: str = Field(description="Primary name or identifier of the entity, maps to EntityNode.name")
+    entity_name: str = Field(description="Primary name or identifier of the entity, maps to EntityNode.name")
     label: str = Field(description="Primary type/label of the node, used to populate EntityNode.labels (e.g., labels=[label])")
     properties: Dict[str, Any] = Field(default_factory=dict, description="Custom properties for the node, maps to EntityNode.attributes")
 

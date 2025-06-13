@@ -7,6 +7,10 @@ from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from llama_cloud_services import LlamaParse # Ensure this is installed via 'uv sync'
 
+# Import and apply nest_asyncio to handle nested async loops
+import nest_asyncio
+nest_asyncio.apply()
+
 # Assuming config_models.py is in the same utils directory
 from .config_models import LlamaParseConfig
 
@@ -39,6 +43,71 @@ class DocumentParser:
             logger.debug("Initialized LlamaParse client.")
         return self._parser
 
+    @retry(
+        stop=stop_after_attempt(3), # Reduced retries for parsing as it can be long
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        retry=retry_if_exception_type(Exception),
+        reraise=True
+    )
+    async def aparse_file(self, file_path: Union[str, Path]) -> List[Dict[str, Any]]:
+        """Async parse a document from a local file path using LlamaParse's aparse method.
+        
+        Args:
+            file_path: Path to the document file.
+            
+        Returns:
+            A list of parsed document objects (dictionaries).
+        """
+        path_obj = Path(file_path)
+        if not path_obj.exists():
+            raise FileNotFoundError(f"File not found for parsing: {path_obj}")
+        
+        logger.info(f"Async parsing document file: {path_obj.name} with LlamaParse")
+        
+        try:
+            # Use LlamaParse's async .aparse() method
+            job_result = await self.parser.aparse(str(path_obj))
+            
+            # Handle JobResult object which has 'pages' attribute
+            if hasattr(job_result, 'pages'):
+                parsed_llama_documents = job_result.pages
+                logger.info(f"Successfully async parsed {len(parsed_llama_documents)} pages from {path_obj.name}.")
+            else:
+                # Fallback for backward compatibility if the result is directly a list of documents
+                parsed_llama_documents = job_result
+                logger.info(f"Successfully async parsed {len(parsed_llama_documents) if hasattr(parsed_llama_documents, '__len__') else 'unknown number of'} sections from {path_obj.name}.")
+            
+            # Extract text content from each parsed document/section
+            extracted_data = []
+            
+            for i, item in enumerate(parsed_llama_documents):
+                if hasattr(item, 'page') and hasattr(item, 'text'):
+                    extracted_data.append({
+                        "page_or_section_index": item.page,
+                        "text": item.text,
+                        "metadata": {"page": item.page}
+                    })
+                elif hasattr(item, 'text'):
+                    extracted_data.append({
+                        "page_or_section_index": i,
+                        "text": item.text,
+                        "metadata": item.metadata if hasattr(item, 'metadata') else {}
+                    })
+                elif isinstance(item, dict) and 'text' in item:
+                    extracted_data.append(item)
+                else:
+                    logger.warning(f"Parsed document section {i} from {path_obj.name} has unexpected format. Content type: {type(item)}")
+                    logger.debug(f"Content preview: {str(item)[:100]}...")
+            
+            if not extracted_data:
+                logger.warning(f"LlamaParse returned no text sections for {path_obj.name}.")
+
+            return extracted_data
+        except Exception as e:
+            logger.error(f"LlamaParse async parsing failed for document {path_obj.name}: {str(e)}")
+            logger.debug(f"Exception type: {type(e)}, Details: {repr(e)}")
+            return []
+    
     @retry(
         stop=stop_after_attempt(3), # Reduced retries for parsing as it can be long
         wait=wait_exponential(multiplier=1, min=2, max=30),
@@ -114,6 +183,23 @@ class DocumentParser:
             logger.debug(f"Exception type: {type(e)}, Details: {repr(e)}")
             return []
 
+    async def aparse_file_to_concatenated_text(self, file_path: Union[str, Path]) -> str:
+        """Async parse a document and concatenate text from all sections/pages.
+        
+        Args:
+            file_path: Path to the document file.
+            
+        Returns:
+            A single string containing all extracted text, joined by newlines.
+        """
+        parsed_sections = await self.aparse_file(file_path)
+        concatenated_text = "\n\n".join([section['text'] for section in parsed_sections if section.get('text')])
+        if not concatenated_text and parsed_sections: # Parsed sections exist but no text was extracted
+            logger.warning(f"Concatenated text is empty for {Path(file_path).name}, though sections were parsed.")
+        elif not parsed_sections:
+            logger.warning(f"No sections were parsed for {Path(file_path).name}, concatenated text is empty.")
+        return concatenated_text
+    
     def parse_file_to_concatenated_text(self, file_path: Union[str, Path]) -> str:
         """Parse a document and concatenate text from all sections/pages.
 

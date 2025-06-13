@@ -30,6 +30,7 @@ dependencies = [
     "chromadb>=1.0.12",
     "pyvis>=0.3.2",
     "streamlit-agraph>=0.0.45",
+    "nest-asyncio>=1.6.0",
 ]
 
 [build-system]

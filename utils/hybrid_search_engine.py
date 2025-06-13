@@ -33,6 +33,18 @@ from google.generativeai import GenerativeModel
 # Import utils for configuration
 from utils.config import get_config
 
+# Import truncate_embedding function
+try:
+    from src.graph_extraction.gemini_embedder import truncate_embedding
+except ImportError:
+    # Define fallback truncate_embedding function if import fails
+    def truncate_embedding(embedding, max_length=100):
+        """Truncate embedding vector representation for readability in logs."""
+        embedding_str = str(embedding)
+        if len(embedding_str) <= max_length:
+            return embedding_str
+        return embedding_str[:max_length] + '...'
+
 
 @dataclass
 class SearchResponse:
@@ -354,7 +366,7 @@ class HybridSearchEngine:
         
         query_embedding = self.embedding_model.embed_query(query_text)  # Use embed_query for specific query task type
         if not query_embedding or not isinstance(query_embedding, list) or not all(isinstance(x, (int, float)) for x in query_embedding):
-            self.logger.error(f"Invalid query embedding: {query_embedding}")
+            self.logger.error(f"Invalid query embedding (truncated): {truncate_embedding(query_embedding)}")
             return []
 
         query_embedding_np = np.array([query_embedding])
@@ -393,7 +405,7 @@ class HybridSearchEngine:
                         "content_text": content_text
                     })
                 else:
-                    self.logger.warning(f"Skipping document ID '{doc_id}' due to missing data or invalid embedding format.")
+                    self.logger.warning(f"Skipping document ID '{doc_id}' due to missing data or invalid embedding format. Embedding (truncated): {truncate_embedding(db_emb) if db_emb else 'None'}")
             
             if not db_embeddings_list:
                 self.logger.info("No valid embeddings found after validation.")
@@ -402,7 +414,7 @@ class HybridSearchEngine:
             db_embeddings_np = np.array(db_embeddings_list)
 
             if query_embedding_np.shape[1] != db_embeddings_np.shape[1]:
-                self.logger.error(f"Query embedding dim ({query_embedding_np.shape[1]}) != DB embedding dim ({db_embeddings_np.shape[1]}).")
+                self.logger.error(f"Query embedding dim ({query_embedding_np.shape[1]}) != DB embedding dim ({db_embeddings_np.shape[1]}). Query embedding (truncated): {truncate_embedding(query_embedding)}")
                 return []
                 
             similarities = cosine_similarity(query_embedding_np, db_embeddings_np)[0]

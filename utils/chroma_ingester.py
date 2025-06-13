@@ -13,6 +13,18 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from .config_models import ChromaDBConfig
 from .embedding import CustomGeminiEmbedding
 
+# Import truncate_embedding function
+try:
+    from src.graph_extraction.gemini_embedder import truncate_embedding
+except ImportError:
+    # Define fallback truncate_embedding function if import fails
+    def truncate_embedding(embedding, max_length=100):
+        """Truncate embedding vector representation for readability in logs."""
+        embedding_str = str(embedding)
+        if len(embedding_str) <= max_length:
+            return embedding_str
+        return embedding_str[:max_length] + '...'
+
 
 class ChromaIngester:
     """Handles document ingestion into ChromaDB."""
@@ -119,7 +131,7 @@ class ChromaIngester:
                 metadatas=metadatas
             )
             
-            logger.info(f"Successfully ingested {len(documents)} documents into ChromaDB")
+            logger.info(f"Successfully ingested {len(documents)} documents into ChromaDB. Sample embedding (truncated): {truncate_embedding(embeddings[0]) if embeddings else 'None'}")
             return True
             
         except Exception as e:
@@ -143,6 +155,11 @@ class ChromaIngester:
             batch_texts = texts[i:i+batch_size]
             batch_embeddings = [self.embedding_model._get_text_embedding(text) for text in batch_texts]
             all_embeddings.extend(batch_embeddings)
+            
+            # Log with truncated embedding representation for readability
+            if batch_embeddings and len(batch_embeddings) > 0:
+                sample_embedding = batch_embeddings[0]
+                logger.debug(f"Batch embedding sample (truncated): {truncate_embedding(sample_embedding)}")
         
         return all_embeddings
         
@@ -208,6 +225,7 @@ class ChromaIngester:
             QueryResult with matching documents, metadata and distances
         """
         query_embedding = self.embedding_model._get_text_embedding(query)
+        logger.debug(f"Search query embedding (truncated): {truncate_embedding(query_embedding)}")
         
         include = ["documents", "metadatas", "distances"]
         if include_embeddings:

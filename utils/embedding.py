@@ -3,12 +3,43 @@ Embedding utility for the Graph-RAG project.
 Provides embedding functionality using Google's Generative AI.
 """
 import os
+import sys
 from typing import List, Optional, Dict, Any, Union
 from google import genai
 
 from llama_index.core.embeddings import BaseEmbedding
 from loguru import logger # Use Loguru for logging
 from .config import get_config
+
+# Try to import the truncate_embedding function from gemini_embedder if available
+try:
+    from src.graph_extraction.gemini_embedder import truncate_embedding
+except ImportError:
+    # Define the function locally if import fails
+    def truncate_embedding(embedding: Any, max_length: int = 100) -> str:
+        """
+        Truncate embedding vector representation to a specified length for readability in logs.
+        
+        Args:
+            embedding: The embedding vector or list to truncate
+            max_length: Maximum length of the string representation
+            
+        Returns:
+            Truncated string representation of the embedding
+        """
+        # Handle None case
+        if embedding is None:
+            return "None"
+            
+        # Convert to string representation
+        embedding_str = str(embedding)
+        
+        # Check if already short enough
+        if len(embedding_str) <= max_length:
+            return embedding_str
+            
+        # Truncate and add ellipsis
+        return embedding_str[:max_length] + '...'
 
 class CustomGeminiEmbedding(BaseEmbedding):
     """
@@ -150,31 +181,30 @@ class CustomGeminiEmbedding(BaseEmbedding):
                 raise ValueError(f"API error during embedding generation: {error_code} - {error_msg}")
             
             # Handle successful responses in various formats
-            if hasattr(response, 'embeddings') and len(response.embeddings) > 0:
-                # Get the embedding values from the first ContentEmbedding object in the list
+            if hasattr(response, 'embeddings') and hasattr(response.embeddings[0], 'values'):
                 embedding_vector = response.embeddings[0].values
                 logger.debug(f"Successfully extracted embedding values from response.embeddings[0].values")
-                # Truncate the embedding for display purposes only
-                vector_str = str(embedding_vector[:5])[:100] + "..." if len(str(embedding_vector[:5])) > 100 else str(embedding_vector[:5])
-                logger.info(f"Successfully received embedding. First 5 dimensions (truncated): {vector_str}")
+                # Truncate the embedding for display purposes
+                truncated = truncate_embedding(embedding_vector)
+                logger.info(f"Successfully received embedding. Truncated representation: {truncated}")
                 return embedding_vector
                 
             # Handle the case when response is a dict with 'embedding' key
             elif isinstance(response, dict) and 'embedding' in response:
                 embedding_vector = response['embedding']
                 logger.debug(f"Successfully extracted embedding from response['embedding']")
-                # Truncate the embedding for display purposes only
-                vector_str = str(embedding_vector[:5])[:100] + "..." if len(str(embedding_vector[:5])) > 100 else str(embedding_vector[:5])
-                logger.info(f"Successfully received embedding. First 5 dimensions (truncated): {vector_str}")
+                # Truncate the embedding for display purposes
+                truncated = truncate_embedding(embedding_vector)
+                logger.info(f"Successfully received embedding. Truncated representation: {truncated}")
                 return embedding_vector
                 
             # Handle the case when response is a dict with 'embeddings' key
             elif isinstance(response, dict) and 'embeddings' in response:
                 embedding_vector = response['embeddings'][0]
                 logger.debug(f"Successfully extracted embedding from response['embeddings'][0]")
-                # Truncate the embedding for display purposes only
-                vector_str = str(embedding_vector[:5])[:100] + "..." if len(str(embedding_vector[:5])) > 100 else str(embedding_vector[:5])
-                logger.info(f"Successfully received embedding. First 5 dimensions (truncated): {vector_str}")
+                # Truncate the embedding for display purposes
+                truncated = truncate_embedding(embedding_vector)
+                logger.info(f"Successfully received embedding. Truncated representation: {truncated}")
                 return embedding_vector
             
             # If we get here, we couldn't extract the embedding

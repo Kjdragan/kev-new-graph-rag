@@ -8,6 +8,8 @@ This script manages the end-to-end process of:
 """
 
 import argparse
+import nest_asyncio
+nest_asyncio.apply()
 import os
 import sys
 import uuid
@@ -57,16 +59,16 @@ logger.add(
 def load_ontology_from_template(template_name: str) -> Tuple[List[Type[BaseNode]], List[Type[BaseRelationship]]]:
     """Dynamically loads NODES and RELATIONSHIPS from the specified ontology template."""
     try:
-        module_name = f"src.ontology_templates.{template_name}_ontology"
+        module_name = f"src.ontology_templates.{template_name}"
         ontology_module = importlib.import_module(module_name)
         
         nodes = getattr(ontology_module, "NODES", [])
         relationships = getattr(ontology_module, "RELATIONSHIPS", [])
         
         if not nodes and not relationships:
-            logger.warning(f"Ontology template '{template_name}' loaded, but NODES or RELATIONSHIPS lists are empty or missing.")
+            logger.warning(f"Ontology template '{template_name}' loaded, but NODES or RELATIONSHIPS lists are empty or missing. Please review the template file.")
         else:
-            logger.info(f"Successfully loaded ontology template: {template_name}_ontology.py")
+            logger.info(f"Successfully loaded ontology module for template: '{template_name}' (module: {module_name})")
             logger.info(f"Found {len(nodes)} node types and {len(relationships)} relationship types.")
             
         return nodes, relationships
@@ -158,14 +160,13 @@ async def process_documents(config: IngestionOrchestratorConfig, ontology_nodes:
     document_parser = DocumentParser(config.llamaparse)
     chroma_ingester = ChromaIngester(config.chromadb, CustomGeminiEmbedding(
             model_name=config.embedding.model_name,
-            output_dimensionality=config.embedding.dimensions,
-            google_api_key=config.embedding.google_api_key
+            output_dimensionality=config.embedding.dimensions
         ))
     graph_extractor = GraphExtractor(
         neo4j_uri=config.neo4j.uri,
         neo4j_user=config.neo4j.user,
         neo4j_pass=config.neo4j.password,
-        gemini_api_key=config.embedding.google_api_key
+        gemini_api_key=os.environ.get("GOOGLE_API_KEY")
     )
     # List files in Google Drive with error handling
     try:
@@ -197,9 +198,9 @@ async def process_documents(config: IngestionOrchestratorConfig, ontology_nodes:
             temp_file_path = temp_path / f"{file_id}_{file_name}"
             gdrive_reader.download_file_to_path(file_id, str(temp_file_path))
             
-            # Parse document with LlamaParse
-            logger.info(f"Parsing {file_name} with LlamaParse...")
-            parsed_document = document_parser.parse_file(str(temp_file_path))
+            # Parse document with LlamaParse using async method
+            logger.info(f"Parsing {file_name} with LlamaParse using async method...")
+            parsed_document = await document_parser.aparse_file(str(temp_file_path))
             
             # ChromaDB Ingestion Path
             logger.info(f"Ingesting {file_name} to ChromaDB...")
@@ -225,7 +226,7 @@ async def process_documents(config: IngestionOrchestratorConfig, ontology_nodes:
             
             # GraphExtractor Path for Neo4j
             logger.info(f"Extracting graph data from {file_name} using template for Neo4j...")
-            full_text_content = document_parser.parse_file_to_concatenated_text(str(temp_file_path))
+            full_text_content = await document_parser.aparse_file_to_concatenated_text(str(temp_file_path))
             
             extraction_results = await graph_extractor.extract(
                 text_content=full_text_content,
@@ -234,7 +235,10 @@ async def process_documents(config: IngestionOrchestratorConfig, ontology_nodes:
                 group_id=file_id, 
                 episode_name_prefix=file_name[:50]
             )
-            logger.info(f"Graph extraction for {file_name} complete. Results: {extraction_results}")
+            # Log only summary counts instead of full extraction results to avoid logging embedding vectors
+            nodes_count = len(extraction_results.get('nodes', []))
+            edges_count = len(extraction_results.get('edges', []))
+            logger.info(f"Graph extraction for {file_name} complete. Summary: {nodes_count} nodes, {edges_count} edges extracted")
             
             # Clean up temp file if needed
             if temp_file_path.exists():
