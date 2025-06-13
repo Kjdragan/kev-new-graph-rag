@@ -40,7 +40,7 @@ from utils.config_models import (
 )
 from utils.config import Config
 from src.graph_extraction.extractor import GraphExtractor
-from src.ontology_templates.generic_ontology import BaseNode, BaseRelationship # For type hinting
+from pydantic import BaseModel # For type hinting
 import importlib
 import asyncio
 
@@ -56,24 +56,24 @@ logger.add(
 )
 
 
-def load_ontology_from_template(template_name: str) -> Tuple[List[Type[BaseNode]], List[Type[BaseRelationship]]]:
+def load_ontology_from_template(template_name: str) -> Tuple[List[Type[BaseModel]], List[Type[BaseModel]]]:
     """Dynamically loads NODES and RELATIONSHIPS from the specified ontology template."""
     try:
-        module_name = f"src.ontology_templates.{template_name}"
+        module_name = f"src.ontology_templates.{template_name}_ontology"
         ontology_module = importlib.import_module(module_name)
         
         nodes = getattr(ontology_module, "NODES", [])
         relationships = getattr(ontology_module, "RELATIONSHIPS", [])
         
         if not nodes and not relationships:
-            logger.warning(f"Ontology template '{template_name}' loaded, but NODES or RELATIONSHIPS lists are empty or missing. Please review the template file.")
+            logger.warning(f"Ontology template '{template_name}' loaded, but NODES or RELATIONSHIPS lists are empty or missing. Please review the template file '{template_name}_ontology.py'.")
         else:
             logger.info(f"Successfully loaded ontology module for template: '{template_name}' (module: {module_name})")
             logger.info(f"Found {len(nodes)} node types and {len(relationships)} relationship types.")
             
         return nodes, relationships
     except ImportError:
-        logger.error(f"Ontology template '{template_name}' not found at {module_name}.py. Please ensure the file exists and is correctly named.")
+        logger.error(f"Ontology template file '{template_name}_ontology.py' not found in 'src/ontology_templates/'. Please ensure the file exists and is correctly named.")
         raise
     except AttributeError as e:
         logger.error(f"Error accessing NODES or RELATIONSHIPS in '{template_name}_ontology.py': {e}")
@@ -144,7 +144,7 @@ def setup_config(env_file: Optional[str] = None) -> IngestionOrchestratorConfig:
     
     return orchestrator_config
 
-async def process_documents(config: IngestionOrchestratorConfig, ontology_nodes: List[Type[BaseNode]], ontology_edges: List[Type[BaseRelationship]], temp_dir: str = "./temp") -> Dict[str, int]:
+async def process_documents(config: IngestionOrchestratorConfig, ontology_nodes: List[Type[BaseModel]], ontology_edges: List[Type[BaseModel]], temp_dir: str = "./temp") -> Dict[str, int]:
     """Process documents from Google Drive to ChromaDB and Neo4j.
     
     Returns:
@@ -186,7 +186,7 @@ async def process_documents(config: IngestionOrchestratorConfig, ontology_nodes:
     }
     
     # Process each file
-    for file_info in drive_files:
+    for file_info in drive_files: 
         file_id = file_info.get('id')
         file_name = file_info.get('name')
         mime_type = file_info.get('mimeType')

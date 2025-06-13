@@ -15,7 +15,7 @@ from graphiti_core.embedder.gemini import GeminiEmbedderConfig # Import Gemini e
 
 # Import our custom BatchSizeOneGeminiEmbedder instead of the standard GeminiEmbedder
 from src.graph_extraction.gemini_embedder import BatchSizeOneGeminiEmbedder
-from src.ontology_templates.generic_ontology import BaseNode, BaseRelationship
+from pydantic import BaseModel
 from utils.config import get_config
 
 # Setup logger for this module
@@ -103,8 +103,8 @@ class GraphExtractor:
     async def extract(
         self,
         text_content: str,
-        ontology_nodes: List[Type[BaseNode]],
-        ontology_edges: List[Type[BaseRelationship]],
+        ontology_nodes: List[Type[BaseModel]],
+        ontology_edges: List[Type[BaseModel]],
         group_id: str = "default_group",
         episode_name_prefix: str = "doc_extract"
     ) -> Dict[str, Any]:
@@ -113,56 +113,41 @@ class GraphExtractor:
 
         Args:
             text_content: The input text to extract from.
-            ontology_nodes: A list of Pydantic models representing the node types for extraction.
-            ontology_edges: A list of Pydantic models representing the relationship types for extraction.
-            group_id: An identifier for the data group in graphiti.
-            episode_name_prefix: Prefix for the generated episode name.
+            ontology_nodes: A list of Pydantic models representing the node ontology.
+            ontology_edges: A list of Pydantic models representing the edge ontology.
+            group_id: The group ID to associate with the extraction episode.
+            episode_name_prefix: A prefix for the episode name.
 
         Returns:
-            A dictionary representing the results from graphiti's add_episode.
+            A dictionary containing the extracted graph data.
         """
-        logger.info(f"Starting graph extraction for group_id: {group_id} with prefix: {episode_name_prefix}") # Added
-        entity_types_map: Dict[str, Type[BaseModel]] = {node_model.__name__: node_model for node_model in ontology_nodes}
-        edge_types_map: Dict[str, Type[BaseModel]] = {edge_model.__name__: edge_model for edge_model in ontology_edges}
-        logger.debug(f"Entity types for extraction: {list(entity_types_map.keys())}") # Added
-        logger.debug(f"Edge types for extraction: {list(edge_types_map.keys())}") # Added
+        logger.info(f"Starting graph extraction for group_id: {group_id} with prefix: {episode_name_prefix}")
+
+        # Combine node and edge models into a single dictionary for entity_types
+        # This is required for the version of graphiti-core being used
+        combined_ontology = ontology_nodes + ontology_edges
+        entity_types_dict = {model.__name__: model for model in combined_ontology}
+        
+        logger.debug(f"Ontology types for extraction: {list(entity_types_dict.keys())}")
 
         episode_name = f"{episode_name_prefix}_{uuid.uuid4()}"
         episode_source_description = "Document processed for KG extraction via GraphExtractor"
-
+        
+        last_error = None
         try:
-            logger.info(f"Calling graphiti_instance.add_episode for episode: {episode_name}") # Added
-            # Prepare arguments for add_episode from the provided ontology
-            # Based on the signature, entity_types should be a dict mapping names to models
-            entity_types_dict: Dict[str, Type[BaseModel]] = {}
-
-            # Add node types to entity_types_dict
-            for node_model in ontology_nodes:
-                entity_types_dict[node_model.__name__] = node_model
-
-            # Add edge types to entity_types_dict
-            for edge_model in ontology_edges:
-                entity_types_dict[edge_model.__name__] = edge_model
-
-            # Store these on self to ensure they're available during add_episode execution
+            logger.info(f"Calling graphiti_instance.add_episode for episode: {episode_name}")
+            
+            # Store ontology info on self for potential debugging or extension
             self.ontology_entity_types = ontology_nodes
             self.ontology_edge_types = ontology_edges
+            # For compatibility, we still store the edge map separately if needed elsewhere
             self.ontology_edge_type_map = {edge_model.__name__: edge_model for edge_model in ontology_edges}
 
-            logger.info(f"Calling add_episode with entity_types: {list(entity_types_dict.keys())}")
-
-            try:
-                sig = inspect.signature(self.graphiti_instance.add_episode)
-                logger.info(f"Signature of loaded graphiti_instance.add_episode: {sig}")
-            except Exception as e:
-                logger.error(f"Could not get signature of graphiti_instance.add_episode: {e}")
-                logger.info(f"Dir of graphiti_instance: {dir(self.graphiti_instance)}")
+            logger.info(f"Calling add_episode with combined entity_types: {list(entity_types_dict.keys())}")
 
             # Add retry logic for NoneType errors
             max_retries = 1  # Try once more after initial failure
             retry_count = 0
-            last_error = None
-
             while retry_count <= max_retries:
                 try:
                     add_episode_result = await self.graphiti_instance.add_episode(
@@ -170,10 +155,10 @@ class GraphExtractor:
                         episode_body=text_content,
                         source_description=episode_source_description,
                         reference_time=datetime.utcnow(),
-                        entity_types=entity_types_dict,
+                        entity_types=entity_types_dict, # Pass combined dictionary
                         group_id=group_id
                     )
-                    logger.info(f"Successfully extracted data for episode: {episode_name}. Nodes: {len(add_episode_result.nodes)}, Edges: {len(add_episode_result.edges)}") # Added
+                    logger.info(f"Successfully extracted data for episode: {episode_name}. Nodes: {len(add_episode_result.nodes)}, Edges: {len(add_episode_result.edges)}")
                     return add_episode_result.model_dump()
                 except Exception as e:
                     last_error = e

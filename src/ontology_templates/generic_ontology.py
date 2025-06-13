@@ -1,157 +1,130 @@
-import uuid
-from typing import Any, Dict, Optional, List
 from pydantic import BaseModel, Field
+from typing import List, Optional
 
-class BaseNode(BaseModel):
-    """
-    Generic base model for a node in the knowledge graph.
-    Maps to graphiti_core.EntityNode.
-    """
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique identifier for the node, maps to EntityNode.uuid")
-    entity_name: str = Field(description="Primary name or identifier of the entity, maps to EntityNode.name")
-    label: str = Field(description="Primary type/label of the node, used to populate EntityNode.labels (e.g., labels=[label])")
-    description: Optional[str] = Field(default=None, description="Brief description of the entity")
-    properties: Dict[str, Any] = Field(default_factory=dict, description="Custom properties for the node, maps to EntityNode.attributes")
-    confidence_score: float = Field(default=1.0, description="Confidence score for this entity extraction (0.0-1.0)")
-    aliases: Optional[List[str]] = Field(default=None, description="Alternative names or identifiers for this entity")
+# --- Node Definitions ---
+# Following Graphiti's documentation, we define custom entity types as Pydantic
+# models. Graphiti will automatically handle base properties like id and name.
+# We only need to define the custom attributes for each entity type.
 
-    class Config:
-        frozen = True # Pydantic v2 style for hashable models if needed later
+class Organization(BaseModel):
+    """An organization, such as a company, institution, or group."""
+    organization_name: str = Field(..., description="The official name of the organization.")
+    industry: Optional[str] = Field(None, description="The industry the organization operates in.")
+    headquarters: Optional[str] = Field(None, description="The location of the organization's headquarters.")
+    founded_year: Optional[int] = Field(None, description="The year the organization was founded.")
 
-class Entity(BaseNode):
-    """Generic entity type for when a more specific type is not applicable."""
-    label: str = Field(default="Entity", description="Label for a generic entity.")
+class Person(BaseModel):
+    """An individual person."""
+    person_name: str = Field(..., description="The full name of the person.")
+    title: Optional[str] = Field(None, description="The person's job title or role.")
+    skills: Optional[List[str]] = Field(None, description="A list of skills the person has.")
 
-class Person(BaseNode):
-    """Person entity representing an individual."""
-    label: str = Field(default="Person", description="Label for a person entity.")
-    full_name: Optional[str] = Field(default=None, description="Full name of the person")
-    role: Optional[str] = Field(default=None, description="Professional role or title")
-    organization: Optional[str] = Field(default=None, description="Organization the person is affiliated with")
+class Location(BaseModel):
+    """A geographical location."""
+    location_name: str = Field(..., description="The name of the location.")
+    city: Optional[str] = Field(None, description="The city where the location is.")
+    country: Optional[str] = Field(None, description="The country where the location is.")
 
-class Organization(BaseNode):
-    """Organization entity representing a company, institution, or formal group."""
-    label: str = Field(default="Organization", description="Label for an organization entity.")
-    founded_year: Optional[int] = Field(default=None, description="Year the organization was founded")
-    industry: Optional[str] = Field(default=None, description="Industry the organization operates in")
-    headquarters: Optional[str] = Field(default=None, description="Location of headquarters")
+class Event(BaseModel):
+    """A specific event that occurred."""
+    event_name: str = Field(..., description="The name of the event.")
+    date: Optional[str] = Field(None, description="The date of the event.")
+    location: Optional[str] = Field(None, description="The location where the event took place.")
 
-class Location(BaseNode):
-    """Location entity representing a geographic place."""
-    label: str = Field(default="Location", description="Label for a location entity.")
-    country: Optional[str] = Field(default=None, description="Country name")
-    city: Optional[str] = Field(default=None, description="City name")
-    address: Optional[str] = Field(default=None, description="Street address")
-    coordinates: Optional[str] = Field(default=None, description="Geographic coordinates")
+class Document(BaseModel):
+    """A written, printed, or electronic document."""
+    title: str = Field(..., description="The title of the document.")
+    author: Optional[str] = Field(None, description="The author of the document.")
+    publication_date: Optional[str] = Field(None, description="The date the document was published.")
 
-class Concept(BaseNode):
-    """Concept entity representing an abstract idea, theory, or theme."""
-    label: str = Field(default="Concept", description="Label for a concept entity.")
-    domain: Optional[str] = Field(default=None, description="Domain or field this concept belongs to")
-    related_terms: Optional[List[str]] = Field(default=None, description="Related terms or concepts")
+class Concept(BaseModel):
+    """An abstract idea or concept."""
+    concept_name: str = Field(..., description="The name of the concept.")
+    domain: Optional[str] = Field(None, description="The domain or field this concept belongs to.")
 
-class Product(BaseNode):
-    """Product entity representing a good, service, or offering."""
-    label: str = Field(default="Product", description="Label for a product entity.")
-    category: Optional[str] = Field(default=None, description="Product category")
-    manufacturer: Optional[str] = Field(default=None, description="Product manufacturer")
-    features: Optional[List[str]] = Field(default=None, description="Key features of the product")
+class Product(BaseModel):
+    """A product or service."""
+    product_name: str = Field(..., description="The name of the product.")
+    category: Optional[str] = Field(None, description="The category of the product.")
+    manufacturer: Optional[str] = Field(None, description="The manufacturer of the product.")
 
-class Event(BaseNode):
-    """Event entity representing a time-bound occurrence."""
-    label: str = Field(default="Event", description="Label for an event entity.")
-    date: Optional[str] = Field(default=None, description="Date of the event")
-    location: Optional[str] = Field(default=None, description="Location of the event")
-    participants: Optional[List[str]] = Field(default=None, description="Participants in the event")
+class Skill(BaseModel):
+    """A specific skill or capability."""
+    skill_name: str = Field(..., description="The name of the skill.")
+    domain: Optional[str] = Field(None, description="The domain the skill belongs to (e.g., 'Programming Language', 'Soft Skill').")
 
-class Document(BaseNode):
-    """Document entity representing a text document or file."""
-    label: str = Field(default="Document", description="Label for a document node.")
-    source_url: Optional[str] = Field(default=None, description="URL or path of the source document")
-    content_hash: Optional[str] = Field(default=None, description="Hash of the document content")
-    author: Optional[str] = Field(default=None, description="Author of the document")
-    publication_date: Optional[str] = Field(default=None, description="Publication date of the document")
+class Project(BaseModel):
+    """A project or initiative."""
+    project_name: str = Field(..., description="The name of the project.")
+    status: Optional[str] = Field(None, description="The current status of the project (e.g., 'In Progress', 'Completed').")
 
-# Export all node types
+class FinancialInstrument(BaseModel):
+    """A financial instrument, such as a stock or bond."""
+    instrument_name: str = Field(..., description="The name of the financial instrument.")
+    ticker_symbol: Optional[str] = Field(None, description="The ticker symbol of the financial instrument.")
+    exchange: Optional[str] = Field(None, description="The exchange where the instrument is traded.")
+
+class Company(BaseModel):
+    """A business entity."""
+    company_name: str = Field(..., description="The name of the company.")
+    ticker: Optional[str] = Field(None, description="The stock ticker symbol of the company.")
+    industry: Optional[str] = Field(None, description="The industry the company operates in.")
+
+class Investment(BaseModel):
+    """An investment made by one entity in another."""
+    investor: str = Field(..., description="The entity making the investment.")
+    investee: str = Field(..., description="The entity receiving the investment.")
+    amount: Optional[float] = Field(None, description="The amount of the investment.")
+    date: Optional[str] = Field(None, description="The date of the investment.")
+
+class Portfolio(BaseModel):
+    """A collection of investments or assets."""
+    portfolio_name: str = Field(..., description="The name of the portfolio.")
+    owner: Optional[str] = Field(None, description="The owner of the portfolio.")
+
+# --- List of all Node Types ---
 NODES = [
-    Entity, 
-    Person, 
-    Organization, 
-    Location, 
-    Concept, 
-    Product, 
-    Event, 
-    Document
+    Organization, Person, Location, Event, Document, Concept, Product, Skill,
+    Project, FinancialInstrument, Company, Investment, Portfolio
 ]
 
-class BaseRelationship(BaseModel):
-    """
-    Generic base model for a relationship in the knowledge graph.
-    Maps to graphiti_core.EntityEdge.
-    """
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique identifier for the relationship, maps to EntityEdge.uuid")
-    source_id: str = Field(description="Identifier of the source node, maps to EntityEdge.source_node_uuid")
-    target_id: str = Field(description="Identifier of the target node, maps to EntityEdge.target_node_uuid")
-    type: str = Field(description="Type of the relationship, maps to EntityEdge.name")
-    fact: str = Field(description="Textual description of the relationship/fact, maps to EntityEdge.fact")
-    properties: Dict[str, Any] = Field(default_factory=dict, description="Custom properties for the relationship, maps to EntityEdge.attributes")
-    confidence_score: float = Field(default=1.0, description="Confidence score for this relationship extraction (0.0-1.0)")
-    source_context: Optional[str] = Field(default=None, description="Text snippet from source supporting this relationship")
+# --- Relationship Definitions ---
+# Relationships are defined as empty Pydantic models to act as placeholders.
+# Graphiti will infer the relationship properties during extraction.
 
-    class Config:
-        frozen = True
+class WorksFor(BaseModel):
+    """Indicates that a person works for an organization."""
+    pass
 
-class RelatesTo(BaseRelationship):
-    """Generic relationship type for when a more specific type is not applicable."""
-    type: str = Field(default="RELATES_TO", description="Generic relationship type.")
+class LocatedIn(BaseModel):
+    """Indicates that an entity is located in a specific location."""
+    pass
 
-class WorksFor(BaseRelationship):
-    """Relationship indicating employment or affiliation."""
-    type: str = Field(default="WORKS_FOR", description="Employment or affiliation relationship.")
-    role: Optional[str] = Field(default=None, description="Role in the organization")
-    start_date: Optional[str] = Field(default=None, description="Start date of employment")
-    end_date: Optional[str] = Field(default=None, description="End date of employment, if applicable")
+class Manages(BaseModel):
+    """Indicates that a person manages a project or organization."""
+    pass
 
-class LocatedIn(BaseRelationship):
-    """Relationship indicating physical location."""
-    type: str = Field(default="LOCATED_IN", description="Physical location relationship.")
-    address_type: Optional[str] = Field(default=None, description="Type of location (e.g., headquarters, branch)")
+class InvestsIn(BaseModel):
+    """Indicates that an entity invests in another entity."""
+    pass
 
-class Creates(BaseRelationship):
-    """Relationship indicating creation or authorship."""
-    type: str = Field(default="CREATES", description="Creation or authorship relationship.")
-    creation_date: Optional[str] = Field(default=None, description="Date of creation")
+class Produces(BaseModel):
+    """Indicates that an organization produces a product."""
+    pass
 
-class PartOf(BaseRelationship):
-    """Relationship indicating component or membership."""
-    type: str = Field(default="PART_OF", description="Component or membership relationship.")
-    role: Optional[str] = Field(default=None, description="Role within the larger entity")
+class HasSkill(BaseModel):
+    """Indicates that a person has a specific skill."""
+    pass
 
-class Mentions(BaseRelationship):
-    """Relationship indicating reference or mention."""
-    type: str = Field(default="MENTIONS", description="Reference or mention relationship.")
-    context: Optional[str] = Field(default=None, description="Context of the mention")
-    sentiment: Optional[str] = Field(default=None, description="Sentiment of the mention (positive, negative, neutral)")
+class Mentions(BaseModel):
+    """Indicates that a document or person mentions an entity."""
+    pass
 
-class Owns(BaseRelationship):
-    """Relationship indicating ownership."""
-    type: str = Field(default="OWNS", description="Ownership relationship.")
-    ownership_percentage: Optional[str] = Field(default=None, description="Percentage of ownership, if applicable")
-    acquisition_date: Optional[str] = Field(default=None, description="Date of acquisition")
+class Owns(BaseModel):
+    """Indicates that an entity owns another entity or a portfolio."""
+    pass
 
-class Uses(BaseRelationship):
-    """Relationship indicating usage or utilization."""
-    type: str = Field(default="USES", description="Usage or utilization relationship.")
-    purpose: Optional[str] = Field(default=None, description="Purpose of usage")
-
-# Export all relationship types
+# --- List of all Relationship Types ---
 RELATIONSHIPS = [
-    RelatesTo,
-    WorksFor,
-    LocatedIn,
-    Creates,
-    PartOf,
-    Mentions,
-    Owns,
-    Uses
+    WorksFor, LocatedIn, Manages, InvestsIn, Produces, HasSkill, Mentions, Owns
 ]
