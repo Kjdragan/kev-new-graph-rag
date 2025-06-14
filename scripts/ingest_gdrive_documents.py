@@ -45,14 +45,26 @@ import importlib
 import asyncio
 
 # Configure logging
+logger.remove() # remove default logger
 log_dir = Path("logs")
 log_dir.mkdir(exist_ok=True)
 log_filename = f"ingestion_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+
+# Console logger with INFO level
+logger.add(
+    sys.stderr, 
+    level="INFO",
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+)
+# File logger with DEBUG level
 logger.add(
     log_dir / log_filename,
     rotation="20 MB",
     retention="7 days",
-    level="INFO"
+    level="DEBUG", # Capture everything in the file
+    enqueue=True,
+    backtrace=True,
+    diagnose=True
 )
 
 
@@ -271,7 +283,7 @@ async def main():
     parser = argparse.ArgumentParser(description="Google Drive Document Ingestion Tool")
     parser.add_argument("--env-file", type=str, help="Path to .env file")
     parser.add_argument("--temp-dir", type=str, default="./temp", help="Path for temporary files")
-    parser.add_argument("--template", type=str, default="generic", help="Name of the ontology template to use (e.g., 'generic', 'financial_report')")
+    parser.add_argument("--template", type=str, default="universal", help="Name of the ontology template to use (e.g., 'universal', 'generic', 'financial_report').")
     
     args = parser.parse_args()
     
