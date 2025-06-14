@@ -42,3 +42,32 @@ With a robust and populated knowledge graph and vector store, the project now tr
 *   **Build User Interface/Application Layer:** (Further out) Create an interface for users to interact with the RAG system.
 
 This `context.md` document serves as a snapshot to ensure continuity and provide a clear starting point for the next phase of development.
+
+---
+
+## Update (2025-06-14): Graph Query Implementation
+
+**Current Focus:** The immediate priority has shifted to implementing the Neo4j query component of the RAG system. Specifically, creating a LlamaIndex retriever that can translate natural language questions into Cypher queries compatible with the Graphiti-populated database.
+
+**Key Developments:**
+
+1.  **New Module (`src/graph_querying/graphiti_retriever.py`):**
+    *   A new Python module has been created to encapsulate the logic for a Graphiti-aware Text-to-Cypher retriever.
+
+2.  **Custom Text-to-Cypher Prompt:**
+    *   A detailed prompt template (`CUSTOM_TEXT_TO_CYPHER_PROMPT_STR`) has been engineered for the LlamaIndex `TextToCypherRetriever`.
+    *   **Crucially, this prompt instructs the LLM to adhere to Graphiti's specific conventions:**
+        *   **Dual Node Labels:** Queries must use the `(n:Entity:SpecificType)` pattern for all nodes.
+        *   **Temporal Filtering:** All relationship matches `[r:REL_TYPE]` must include a `WHERE` clause to filter for currently active relationships using a `$current_datetime` parameter. The logic is: `r.valid_at IS NOT NULL AND r.valid_at <= $current_datetime AND (r.invalid_at IS NULL OR r.invalid_at > $current_datetime) AND r.expired_at IS NULL`.
+
+3.  **Vertex AI Integration:**
+    *   The retriever is configured to use Google Gemini models via **Vertex AI**.
+    *   It uses the `llama_index.llms.google_genai.GoogleGenAI` class with the `vertexai_config` parameter, which requires `GCP_PROJECT_ID` and `GCP_REGION` to be set in the `.env` file.
+    *   This aligns with the project's existing Google Cloud authentication strategy (Application Default Credentials) rather than a simple API key.
+
+**Next Immediate Action:**
+
+*   **Test `graphiti_retriever.py`:** The script is ready to be executed. This first run will serve to:
+    *   Verify that the environment variables for Neo4j and Vertex AI are correctly loaded.
+    *   Confirm that the LLM can generate a syntactically correct Cypher query based on the custom prompt.
+    *   **Test the parameter passing mechanism:** Determine if the `$current_datetime` parameter is successfully passed to the Neo4j driver during query execution. This is a critical test, as the base LlamaIndex retriever does not natively support this.
