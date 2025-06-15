@@ -70,6 +70,16 @@ For asynchronous operations, such as generating content within an `async` functi
 
 ## 5. Evolution of Understanding & Lessons Learned (Troubleshooting Journey)
 
+### Model Availability in Vertex AI
+
+- **Symptom**: API calls to `client.aio.models.generate_content` might fail with a `404 NOT_FOUND` error, with a message like: `Publisher Model 'projects/YOUR_PROJECT/locations/YOUR_LOCATION/publishers/google/models/MODEL_ID' not found.`
+- **Cause**: This typically means the specified `MODEL_ID` (e.g., a preview version like `gemini-2.5-pro-preview-06-05`) is not enabled for your Google Cloud Project in the specified location, or the model ID is incorrect/deprecated for that region.
+- **Troubleshooting**:
+    1.  Verify the model ID in your `config.yaml` or code against the available models in the Google Cloud Console for Vertex AI in your project and region.
+    2.  Test with a generally available model (e.g., a "flash" variant like `gemini-2.5-flash-preview-05-20`) to confirm the rest of the SDK integration and authentication is working. If the flash model works, the issue is likely specific to the originally requested model's availability.
+    3.  Ensure the model is explicitly enabled for your project if it's a preview or restricted model.
+- **Example**: In this project, initial calls with `gemini-2.5-pro-preview-06-05` (default in `cypher_generator.py`) failed with a 404 in the `neo4j-deployment-new1` project / `us-central1` region. Temporarily switching the script to use `gemini-2.5-flash-preview-05-20` resulted in successful API calls, confirming the core SDK integration and pointing to an availability issue with the "pro" preview model.
+
 Our path to the current best practice involved several iterations and troubleshooting steps:
 
 1.  **Initial `genai.configure()` Attempts**: Early use of `genai.configure()` was incorrect as this function is not part of the `google-genai` client library's standard flow when using ADC with Vertex AI, or it has been deprecated/changed in the version used.

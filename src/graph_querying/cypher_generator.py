@@ -5,7 +5,7 @@ with structured output.
 import os
 import json
 from google import genai # Main SDK import
-from google.genai.types import GenerateContentConfig, HttpOptions # Specific types, using GenerateContentConfig as per example
+from google.genai.types import GenerateContentConfig, HttpOptions, ThinkingConfig # Specific types, including ThinkingConfig
 import dotenv
 from dotenv import load_dotenv
 
@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, ValidationError
 from typing import Dict, Any, Optional
 
 from src.graph_querying.schema_utils import get_ontology_schema_string
+from src.graph_querying.neo4j_executor import execute_cypher_query, Neo4jConnectionError, Neo4jQueryError
 
 
 
@@ -32,10 +33,29 @@ class CypherGenerationError(Exception):
     """Custom exception for errors during Cypher generation."""
     pass
 
+def load_config(model_type: str = "pro") -> tuple[str, int]:
+    """Loads model ID and thinking budget from config.yaml for the given model type."""
+    config_path = Path(__file__).resolve().parent.parent.parent / "config.yaml"
+    if not config_path.exists():
+        raise FileNotFoundError(f"config.yaml not found at {config_path}")
+
+    with open(config_path, 'r') as f:
+        config_data = yaml.safe_load(f)
+
+    try:
+        model_config = config_data['gemini']['models'][model_type]
+        model_id = model_config['model_id']
+        thinking_budget = model_config.get('thinking_budget', 0) # Default to 0 if not specified
+        return model_id, int(thinking_budget)
+    except KeyError as e:
+        raise KeyError(f"Could not find configuration for model_type '{model_type}' in config.yaml: {e}")
+    except ValueError as e:
+        raise ValueError(f"Invalid thinking_budget for model_type '{model_type}' in config.yaml: {e}")
+
 async def generate_cypher_query(
     natural_language_query: str,
     ontology_schema: Optional[str] = None,
-    gemini_model_name: str = "gemini-2.5-pro-preview-06-05", # Using the correct model from config.yaml
+    model_config_type: str = "flash", # Specifies 'flash' or 'pro' from config.yaml
     # In a real scenario, you might pass a Graphiti SearchResults object here for context
     # search_context: Optional[Any] = None
 ) -> CypherQueryResult:
@@ -45,7 +65,7 @@ async def generate_cypher_query(
     Args:
         natural_language_query: The user's query in natural language.
         ontology_schema: The ontology schema string. If None, it will be generated.
-        gemini_model_name: The name of the Gemini model to use.
+        model_config_type: The key (e.g., 'flash', 'pro') from config.yaml to use for model ID and budget.
         # search_context: Optional context from a preliminary Graphiti search.
 
     Returns:
@@ -87,26 +107,38 @@ async def generate_cypher_query(
     prompt = "\n".join(prompt_parts)
 
     # Initialize the Gemini model
-    # Note: For production, consider more robust error handling and model configuration (e.g., safety settings)
-    effective_model_name = gemini_model_name
-    # When using GOOGLE_GENAI_USE_VERTEXAI=True, the SDK should handle routing.
-    # The model name is typically the direct ID like 'gemini-2.5-pro-preview-06-05'.
+    # Load model_id and thinking_budget from config.yaml based on gemini_model_name
+    # This assumes gemini_model_name is a key like 'pro' or 'flash' if we want to use config.yaml directly
+    # For now, we are passing the full model_id, so we need a way to map back or adjust loading
+    # Let's adjust the logic: if gemini_model_name is a full ID, we try to find its type ('pro' or 'flash')
+    # or we directly use the passed gemini_model_name and fetch its specific budget if defined.
+    # For simplicity in this step, we'll assume `gemini_model_name` is used to fetch budget if it's a key in config.
+    # However, the current call from main passes the full ID. So, we need to adjust how `load_config` is used or what `gemini_model_name` signifies.
+
+    # Let's refine: The `generate_cypher_query` function takes `gemini_model_name` which IS the model_id.
+    # We need to determine if this model_id corresponds to 'pro' or 'flash' to get its budget from config.
+    # This is a bit circular. A better approach: `main` decides 'pro' or 'flash', loads config, then passes model_id and budget.
+
+    # For now, to make progress and test with the flash model's budget:
+    # We know `main` is calling with flash_model_id. We'll hardcode fetching 'flash' budget for this test.
+    # Load model_id and thinking_budget from config.yaml based on model_config_type
+    effective_model_name, thinking_budget = load_config(model_config_type)
+    print(f"Using model configuration: '{model_config_type}' (ID: {effective_model_name}, Budget: {thinking_budget})")
 
     try:
-        # Instantiate the client with HttpOptions, as per the new example.
-        # It will pick up env vars for Vertex AI config if GOOGLE_GENAI_USE_VERTEXAI is True.
         client = genai.Client(http_options=HttpOptions(api_version="v1"))
 
-        # Configure for JSON output using GenerateContentConfig
-        config = GenerateContentConfig(
-            response_mime_type="application/json" # Assuming this is a valid parameter for GenerateContentConfig
-        )
+        gen_config_params = {"response_mime_type": "application/json"}
+        if thinking_budget > 0:
+            print(f"Applying thinking_budget: {thinking_budget} for model {effective_model_name}")
+            gen_config_params["thinking_config"] = ThinkingConfig(budget=thinking_budget)
+        
+        config = GenerateContentConfig(**gen_config_params)
 
-        # Use the client.aio.models.generate_content pattern for async calls.
         response = await client.aio.models.generate_content(
-            model=effective_model_name, # This is the model ID string
+            model=effective_model_name, # Use the model_id loaded from config
             contents=prompt,
-            config=config # Corrected keyword argument
+            config=config
         )
     except Exception as e:
         # Add more specific error logging if possible
@@ -157,11 +189,39 @@ async def main():
     print(f"\nNatural Language Query: {test_nl_query}")
 
     try:
-        result = await generate_cypher_query(test_nl_query)
+        # Use 'flash' model type from config.yaml, which includes its thinking_budget
+        result = await generate_cypher_query(test_nl_query, model_config_type="flash")
         print("\nSuccessfully generated Cypher query:")
         print(f"  Query: {result.cypher_query}")
         print(f"  Parameters: {result.parameters}")
         print(f"  Explanation: {result.explanation}")
+
+        # Now, execute the generated query
+        if result.cypher_query:
+            print("\nAttempting to execute generated Cypher query...")
+            try:
+                query_execution_results = execute_cypher_query(
+                    query=result.cypher_query,
+                    parameters=result.parameters
+                    # database_name can be specified here if needed, e.g., os.getenv("NEO4J_DATABASE_MAIN")
+                )
+                print("\nSuccessfully executed Cypher query.")
+                print(f"Results ({len(query_execution_results)} records):")
+                for i, record in enumerate(query_execution_results):
+                    print(f"  Record {i+1}: {record}")
+                    if i >= 4: # Print max 5 records for brevity in testing
+                        print(f"  ... (and {len(query_execution_results) - 5} more records)")
+                        break
+            except Neo4jConnectionError as ne:
+                print(f"\nNeo4j Connection Error: {ne}")
+                print("Please ensure Neo4j is running and .env variables (NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD) are correctly set.")
+            except Neo4jQueryError as nqe:
+                print(f"\nNeo4j Query Error: {nqe}")
+            except Exception as exec_e:
+                print(f"\nAn unexpected error occurred during query execution: {exec_e}")
+        else:
+            print("\nSkipping query execution as no Cypher query was generated.")
+
     except CypherGenerationError as e:
         print(f"\nError generating Cypher query: {e}")
     except Exception as e:
