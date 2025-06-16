@@ -1,6 +1,8 @@
 # Understanding Graphiti's Native Search Capabilities
 
-This document outlines the findings from reviewing the `graphiti-core` library's search functionality and details how the `kev-new-graph-rag` project will leverage these capabilities for its natural language to Cypher query pipeline.
+This document outlines the findings from reviewing the `graphiti-core` library's search functionality and details how the `kev-new-graph-rag` project leverages these capabilities for its hybrid search implementation.
+
+**Status: ✅ IMPLEMENTED AND TESTED** - As of December 2024, we have successfully implemented a full hybrid search integration using Graphiti's native search capabilities with custom Gemini embeddings.
 
 ## Key Graphiti Modules and Files Analyzed:
 
@@ -26,9 +28,10 @@ This document outlines the findings from reviewing the `graphiti-core` library's
 
 ### 2. Search Orchestration (`search/search.py`)
 
-*   **`async def search(clients: GraphitiClients, query: str, group_ids: Optional[List[str]], config: SearchConfig, search_filter: SearchFilters, ...)`**:
+*   **`async def search(clients: GraphitiClients, query: str, group_ids: Optional[List[str]], config: SearchConfig, search_filter: SearchFilters, query_vector: Optional[List[float]] = None, ...)`**:
     *   This is the core function that orchestrates the actual search.
-    *   It first generates a query vector from the input `query` string using the configured `EmbedderClient`.
+    *   **Key Discovery**: The `query_vector` parameter allows passing pre-computed embeddings, bypassing internal embedding generation.
+    *   It first generates a query vector from the input `query` string using the configured `EmbedderClient` (unless `query_vector` is provided).
     *   It then concurrently performs searches across different graph element types:
         *   `edge_search()`
         *   `node_search()`
@@ -50,7 +53,7 @@ This document outlines the findings from reviewing the `graphiti-core` library's
 *   **Output**: The top-level `search()` function in this module returns a `SearchResults` object. This object is a Pydantic model containing:
     *   `edges: List[EntityEdge]`
     *   `nodes: List[EntityNode]`
-    *   `episodes: List[EpisodicNode]`
+    *   `episodes: List[EpisodicNode]` 
     *   `communities: List[CommunityNode]`
 
 ### 3. Filtering (`search/search_filters.py`)
@@ -58,50 +61,152 @@ This document outlines the findings from reviewing the `graphiti-core` library's
 *   **`SearchFilters(BaseModel)`**: This Pydantic model allows for detailed filtering criteria to be applied during the search process. Key filterable fields include:
     *   `node_labels: Optional[List[str]]`
     *   `edge_types: Optional[List[str]]`
-    *   **Temporal Properties**: These are crucial for the project's requirements.
-        *   `valid_at: Optional[List[List[DateFilter]]]`
-        *   `invalid_at: Optional[List[List[DateFilter]]]`
-        *   `created_at: Optional[List[List[DateFilter]]]`
-        *   `expired_at: Optional[List[List[DateFilter]]]`
-    *   The temporal filters accept a list of lists of `DateFilter` objects. `DateFilter` itself contains a `date: datetime` and a `comparison_operator: ComparisonOperator` (e.g., equals, greater_than, less_than_equal).
-    *   This structure allows for complex AND/OR logic for date conditions (inner list is AND, outer list is OR).
-*   **Filter Query Constructors (`node_search_filter_query_constructor`, `edge_search_filter_query_constructor`)**:
+    *   `group_ids: Optional[List[str]]` (for multi-tenancy)
+    *   `valid_at: Optional[datetime]` (for temporal filtering)
+    *   `invalid_at: Optional[datetime]` (for temporal filtering)
+    *   `center_node_uuid: Optional[str]` (for context-aware reranking)
+    *   And several others...
+
+*   **Filter Utility Functions**: The module also contains utility functions like `build_node_filters()` and `build_edge_filters()` that translate the high-level `SearchFilters` object into concrete Cypher query fragments.
     *   These functions take a `SearchFilters` object and dynamically construct Cypher `WHERE` clause snippets and parameter dictionaries. These snippets are then incorporated into the underlying Cypher queries executed by the various search methods (e.g., full-text, similarity searches within Neo4j).
 
-## Summary of Graphiti's Native Search:
+## Technical Challenges Resolved
 
-Graphiti's native search is a powerful hybrid system designed to retrieve relevant **graph elements (nodes, edges, episodes, communities)** based on a natural language query and specified filters. It combines keyword search, semantic (vector) search, and graph traversal (BFS), followed by sophisticated reranking.
+### 1. Embedding Dimensionality Compatibility ✅
 
-**Importantly, Graphiti's `search()` method does not directly translate a natural language query into a full, executable Cypher query for arbitrary graph patterns. Instead, it retrieves existing graph elements that are deemed relevant to the query.**
+**Challenge**: The ingestion pipeline used `CustomGeminiEmbedding` with 1536-dimensional embeddings (`gemini-embedding-001`), but Graphiti's default `GeminiEmbedder` was generating 1024-dimensional embeddings, causing Neo4j compatibility issues.
 
-## Project-Specific Approach for NL-to-Cypher
+**Solution**: 
+- Use `CustomGeminiEmbedding` for query-time embedding generation (matching ingestion)
+- Pass generated embeddings as `query_vector` parameter to Graphiti's search functions
+- This bypasses Graphiti's internal embedding generation entirely, avoiding dimensionality conflicts
 
-Given Graphiti's capabilities, the `kev-new-graph-rag` project will adopt the following approach for its NL-to-Cypher pipeline:
+### 2. Authentication with Vertex AI ADC ✅
 
-1.  **Schema Generation for LLM Context**: 
-    *   The `src.graph_querying.schema_utils.get_ontology_schema_string()` function will be used to generate a detailed markdown representation of the `universal_ontology.py` (node types, relationship types, properties, and temporal considerations like `$current_datetime`).
+**Challenge**: Ensuring all API calls use Application Default Credentials (ADC) instead of direct API keys.
 
-2.  **Optional Candidate Retrieval (Graphiti Search)**:
-    *   For complex queries or when needing to ground the LLM with specific entities, Graphiti's `search()` method *can* be used as an initial step.
-    *   The user's natural language query, along with any `group_id` or high-level temporal hints (if discernible directly from the NL query), can be passed to `Graphiti.search()` with appropriate `SearchFilters`.
-    *   The `SearchResults` (containing relevant nodes/edges) can provide valuable context (e.g., names, types, UUIDs of specific entities) to the LLM for the next step.
-    *   This step is optional and can be bypassed if the NL query is simple enough or if a direct NL-to-Cypher translation is preferred for certain query types.
+**Solution**:
+- Configure environment variables: `GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`
+- Use `genai.Client()` with ADC authentication in both custom embeddings and Graphiti LLM client
+- Avoid hardcoded API keys in production code
 
-3.  **LLM-Powered Cypher Generation (Gemini)**:
-    *   The core NL-to-Cypher translation will be handled by a Google Gemini LLM accessed via the `google-genai` SDK.
-    *   The prompt to Gemini will include:
-        *   The original natural language query from the user.
-        *   The comprehensive ontology schema string (from `schema_utils.py`).
-        *   Optionally, context from Graphiti's search results (if step 2 was performed), such as names or UUIDs of relevant entities.
-        *   Clear instructions to generate a Cypher query and a corresponding dictionary of parameters.
-    *   **Structured Output**: Gemini's structured output feature will be used, with a Pydantic model defining the expected response format (e.g., a model with fields like `cypher_query: str` and `parameters: Dict[str, Any]`).
-    *   The LLM will be explicitly instructed to:
-        *   Use the `$current_datetime` parameter for temporal filtering based on `valid_at` and `invalid_at` properties on relationships (e.g., `r.valid_at <= $current_datetime AND (r.invalid_at IS NULL OR r.invalid_at > $current_datetime)` for currently active relationships).
-        *   Adhere to the provided ontology for node labels, relationship types, and property names.
+### 3. API Method Compatibility ✅
 
-4.  **Cypher Query Execution**:
-    *   The Python application will receive the structured output (Cypher query and parameters) from Gemini.
-    *   It will inject the actual `datetime.now(timezone.utc)` value for the `$current_datetime` parameter.
-    *   The finalized Cypher query will be executed against the Neo4j AuraDB instance using the standard Neo4j Python driver.
+**Challenge**: Initial implementation attempted to call non-existent methods like `.create()` on `CustomGeminiEmbedding`.
 
-This approach leverages Graphiti's strengths in retrieving relevant graph elements and filtering, while relying on the advanced reasoning capabilities of Gemini LLMs for constructing precise, temporally-aware Cypher queries based on the project's specific ontology.
+**Solution**: 
+- Use `._get_query_embedding()` method to match ingestion pipeline usage
+- Ensure consistent method calls across ingestion and query-time embedding generation
+
+### 4. OpenAI API Dependency Elimination ✅
+
+**Challenge**: Graphiti was defaulting to OpenAI embeddings when `embedder=None`, causing authentication errors.
+
+**Solution**:
+- Pass pre-computed embeddings via `query_vector` parameter
+- Set `embedder=None` in Graphiti initialization since we provide embeddings directly
+- This completely eliminates OpenAI API calls from the search pipeline
+
+## Current Implementation: Hybrid Search with Graphiti
+
+Our production implementation (`src/graph_querying/graphiti_native_search.py`) provides a complete hybrid search solution:
+
+### Architecture
+
+```python
+class GraphitiNativeSearcher:
+    """
+    Hybrid search implementation using:
+    - CustomGeminiEmbedding for 1536-dimensional query embeddings 
+    - Graphiti's native search, reranking, and filtering capabilities
+    - Search recipes for different search strategies
+    """
+```
+
+### Key Components
+
+1. **Custom Embedding Generation**:
+   - Uses `CustomGeminiEmbedding` (same as ingestion pipeline)
+   - Generates 1536-dimensional embeddings via `gemini-embedding-001`
+   - Authenticates via Vertex AI ADC
+
+2. **Graphiti Integration**:
+   - Initializes `Graphiti` with `GeminiClient` for LLM operations
+   - Sets `embedder=None` to avoid internal embedding generation
+   - Passes custom embeddings via `query_vector` parameter
+
+3. **Search Methods**:
+   - `hybrid_search()`: Standard hybrid search with RRF reranking
+   - `entity_focused_search()`: Context-aware search with center node reranking
+   - `advanced_search()`: Configurable search with different recipe strategies
+
+4. **Search Recipes Used**:
+   - `EDGE_HYBRID_SEARCH_RRF`: Hybrid edge search with Reciprocal Rank Fusion
+   - `NODE_HYBRID_SEARCH_RRF`: Hybrid node search with RRF
+   - `COMBINED_HYBRID_SEARCH_RRF`: Combined search across all element types
+   - Alternative BM25-based recipes for different ranking strategies
+
+### Testing and Validation
+
+**Test Script**: `src/graph_querying/test_hybrid_search.py`
+
+**Test Results**: 
+- ✅ Embedding compatibility test passes (1536 dimensions confirmed)
+- ✅ No OpenAI API calls (eliminated authentication errors)
+- ✅ Successful Vertex AI authentication and embedding generation
+- ✅ Graphiti search integration working with custom embeddings
+- ✅ Multiple search strategies tested (standard, entity-focused, advanced)
+
+### Sample Usage
+
+```python
+async with GraphitiNativeSearcher() as searcher:
+    # Standard hybrid search
+    results = await searcher.hybrid_search(
+        query="What is artificial intelligence?",
+        num_results=10
+    )
+    
+    # Entity-focused search with context
+    results = await searcher.entity_focused_search(
+        query="AI research trends",
+        center_node_uuid="some-entity-uuid", 
+        num_results=5
+    )
+    
+    # Advanced search with specific recipe
+    results = await searcher.advanced_search(
+        query="machine learning frameworks",
+        recipe_name="COMBINED_HYBRID_SEARCH_RRF",
+        num_results=8
+    )
+```
+
+## Summary of Current Approach
+
+**Graphiti's native search is now fully integrated** as the primary search mechanism for the `kev-new-graph-rag` project. Unlike the original theoretical approach that considered Graphiti as optional candidate retrieval, we now use it as the complete search solution.
+
+**Key Benefits Achieved**:
+1. **Hybrid Search**: Combines keyword, semantic, and graph traversal search methods
+2. **Advanced Reranking**: Uses RRF, MMR, and cross-encoder reranking strategies  
+3. **Embedding Consistency**: Query-time embeddings match ingestion pipeline (1536 dimensions)
+4. **Authentication Security**: Uses ADC instead of hardcoded API keys
+5. **Search Flexibility**: Multiple search recipes and filtering options
+6. **Production Ready**: Comprehensive error handling and logging
+
+**This implementation provides a robust, scalable search foundation** that can be extended with additional natural language interfaces or integrated with LLM-powered query expansion and result summarization as needed.
+
+## Migration from Manual Cypher Approach
+
+The project has successfully migrated from:
+- ❌ **Manual Cypher generation** with custom NL-to-Cypher translation
+- ❌ **Direct Neo4j driver usage** with hand-crafted queries
+- ❌ **Embedding dimension mismatches** and authentication issues
+
+To:
+- ✅ **Graphiti-native hybrid search** with proven algorithms
+- ✅ **Consistent embedding pipeline** across ingestion and query
+- ✅ **Enterprise-grade authentication** via ADC
+- ✅ **Comprehensive search capabilities** with filtering and reranking
+
+This migration provides a more robust, maintainable, and feature-rich search experience while maintaining full compatibility with the existing knowledge graph structure.

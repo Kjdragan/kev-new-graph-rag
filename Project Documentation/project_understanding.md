@@ -87,11 +87,13 @@ Configuration is managed externally to avoid hardcoding and facilitate different
 *   **Graphiti Core (Dependency):** `c:\Users\kevin\repos\graphiti\graphiti_core\`
 *   **Graphiti Examples (Dependency):** `c:\Users\kevin\repos\graphiti\examples\`
 
-## 7. Current Querying Challenge & Strategic Pivot
+## 7. Query Pipeline Status: Pivot Complete & Validated
 
-*   The initial attempt to build a query pipeline using LlamaIndex's `TextToCypherRetriever` (formerly in `graphiti_retriever.py`) encountered persistent issues, particularly with reliably passing the dynamic `$current_datetime` parameter for temporal filtering in Neo4j.
-*   As a result, `graphiti_retriever.py` has been deleted.
-*   The project has pivoted to a **Graphiti-native approach**. This involves directly utilizing Graphiti's capabilities and/or using the Gemini LLM (via `google-genai` SDK) with the Graphiti-generated schema to translate natural language queries into Cypher. This new query module will reside in `src/graph_querying/`.
+*   The initial strategy using LlamaIndex's `TextToCypherRetriever` was abandoned due to persistent integration issues.
+*   The project successfully **pivoted to a direct NL-to-Cypher pipeline** built in `src/graph_querying/cypher_generator.py`.
+*   This new pipeline uses the `google-genai` SDK to interact with Gemini, enforcing structured JSON output via Pydantic models.
+*   **Validation:** The end-to-end pipeline has been successfully validated. It can take a natural language query, generate a syntactically correct and schema-aware Cypher query, and execute it against the Neo4j database without technical errors.
+*   **Current Focus:** The challenge has shifted from technical implementation to data investigation. The pipeline works, but initial queries returned zero results, indicating a mismatch between the assumed relationship names in the query (e.g., `r.name = 'CREATES'`) and how Graphiti actually stored those relationships in the database. The next step is to inspect the Neo4j graph to discover the correct relationship properties and update the LLM prompt accordingly.
 
 ## 8. SDK and Development Requirements
 

@@ -68,6 +68,35 @@ For asynchronous operations, such as generating content within an `async` functi
 - **Model IDs**: Specific Gemini model IDs (e.g., `gemini-2.5-pro-preview-06-05`, `gemini-2.5-flash-preview-05-20`) should be managed in the project's `config.yaml` file and loaded dynamically in the Python scripts.
 - **Structured Output**: To receive JSON-formatted output from the LLM, use `GenerateContentConfig(response_mime_type="application/json")` for structured output (note the class name change based on examples). The LLM prompt must also instruct the model to generate JSON.
 
+- **Thinking Budget (for applicable models like Flash)**:
+  - To enable and control the "thinking" budget for models that support it (e.g., `gemini-2.5-flash-preview-05-20`), use the `ThinkingConfig` type from `google.genai.types`.
+  - The budget is specified using the `thinking_budget` parameter within `ThinkingConfig`.
+  - This `ThinkingConfig` instance is then passed to the `thinking_config` parameter of `GenerateContentConfig`.
+  - Example:
+    ```python
+    from google.genai.types import GenerateContentConfig, ThinkingConfig
+
+    # Assuming 'thinking_budget_value' is loaded from config.yaml (e.g., 1024)
+    # Assuming 'effective_model_name' is the model ID
+
+    gen_config_params = {"response_mime_type": "application/json"}
+    if thinking_budget_value > 0:
+        print(f"Applying thinking_budget: {thinking_budget_value} for model {effective_model_name}")
+        # Correct instantiation:
+        gen_config_params["thinking_config"] = ThinkingConfig(thinking_budget=thinking_budget_value)
+    
+    content_config = GenerateContentConfig(**gen_config_params)
+
+    # Then use 'content_config' in the client.aio.models.generate_content call:
+    # response = await client.aio.models.generate_content(
+    #     model=effective_model_name,
+    #     contents=prompt,
+    #     config=content_config
+    # )
+    ```
+  - A `thinking_budget` of `0` effectively turns off the thinking feature for that call.
+  - **Important**: Ensure you are using the correct parameter name (`thinking_budget`) within the `ThinkingConfig` constructor. Initial attempts using `budget` or setting an attribute dynamically after instantiation (`tc.budget = ...`) will result in errors.
+
 ## 5. Evolution of Understanding & Lessons Learned (Troubleshooting Journey)
 
 ### Model Availability in Vertex AI

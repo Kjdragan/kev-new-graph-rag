@@ -8,9 +8,11 @@ from google import genai # Main SDK import
 from google.genai.types import GenerateContentConfig, HttpOptions, ThinkingConfig # Specific types, including ThinkingConfig
 import dotenv
 from dotenv import load_dotenv
+from pathlib import Path # Added to resolve NameError
+import yaml # Added to resolve NameError
 
 # genai.types.GenerationConfig will be used for specifying response_mime_type
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, AliasChoices
 from typing import Dict, Any, Optional
 
 from src.graph_querying.schema_utils import get_ontology_schema_string
@@ -21,7 +23,7 @@ from src.graph_querying.neo4j_executor import execute_cypher_query, Neo4jConnect
 # Define the Pydantic model for structured LLM output
 class CypherQueryResult(BaseModel):
     """Pydantic model for the structured output of the Cypher generation LLM call."""
-    cypher_query: str = Field(..., description="The generated Cypher query string.")
+    cypher_query: str = Field(..., validation_alias=AliasChoices('cypher_query', 'query', 'cypher'), description="The generated Cypher query string.")
     parameters: Dict[str, Any] = Field(
         default_factory=dict,
         description="A dictionary of parameters to be used with the Cypher query. "
@@ -52,78 +54,127 @@ def load_config(model_type: str = "pro") -> tuple[str, int]:
     except ValueError as e:
         raise ValueError(f"Invalid thinking_budget for model_type '{model_type}' in config.yaml: {e}")
 
+# Define the canonical mapping of (SourceNode, TargetNode) -> [RELATIONSHIP_TYPES_IN_NEO4J]
+# IMPORTANT: Relationship types here MUST match the exact strings used in Neo4j by Graphiti.
+# Assuming Pydantic class names (CamelCase) are converted to UPPER_SNAKE_CASE for Neo4j.
+# User should verify and adjust this map based on their actual Graphiti ingestion naming.
+# Maps (Source, Target) to the 'name' property value on the RELATES_TO relationship.
+# These are derived from the Universal Ontology relationship classes.
+EDGE_TYPE_MAP = {
+    ('Person', 'Event'): ['PARTICIPATES_IN'],
+    ('Organization', 'Event'): ['PARTICIPATES_IN'],
+    ('Person', 'Organization'): ['PARTICIPATES_IN'],
+    ('Organization', 'Location'): ['LOCATED_IN'],
+    ('Event', 'Location'): ['LOCATED_IN'],
+    ('Person', 'Location'): ['LOCATED_IN'],
+    ('Resource', 'Location'): ['LOCATED_IN'],
+    ('Technology', 'Location'): ['LOCATED_IN'],
+    ('Person', 'Content'): ['HAS_CREATOR', 'CREATES'],
+    ('Organization', 'Content'): ['HAS_CREATOR', 'CREATES'],
+    ('Person', 'Technology'): ['HAS_CREATOR', 'CREATES'],
+    ('Organization', 'Technology'): ['HAS_CREATOR', 'CREATES'],
+    ('Organization', 'Resource'): ['HAS_CREATOR', 'CREATES'],
+    ('Person', 'Agreement'): ['HAS_CREATOR', 'CREATES'],
+    ('Organization', 'Agreement'): ['HAS_CREATOR', 'CREATES'],
+    ('Person', 'Event'): ['HAS_CREATOR', 'CREATES'],
+    ('Person', 'Technology'): ['USES'],
+    ('Organization', 'Technology'): ['USES'],
+    ('Technology', 'Resource'): ['USES'],
+    ('Organization', 'Resource'): ['USES'],
+    ('Person', 'Resource'): ['USES'],
+    ('Event', 'Technology'): ['USES'],
+    ('Person', 'Person'): ['SUPPORTS'],
+    ('Organization', 'Person'): ['SUPPORTS'],
+    ('Person', 'Organization'): ['SUPPORTS'],
+    ('Organization', 'Organization'): ['SUPPORTS'],
+    ('Content', 'Topic'): ['DISCUSSES', 'MENTIONS'],
+    ('Content', 'Person'): ['DISCUSSES', 'MENTIONS'],
+    ('Content', 'Organization'): ['DISCUSSES', 'MENTIONS'],
+    ('Content', 'Event'): ['DISCUSSES', 'MENTIONS'],
+    ('Content', 'Technology'): ['DISCUSSES', 'MENTIONS'],
+    ('Content', 'Resource'): ['DISCUSSES', 'MENTIONS'],
+    ('Content', 'Location'): ['DISCUSSES', 'MENTIONS'],
+    ('Event', 'Topic'): ['DISCUSSES', 'MENTIONS'],
+    ('Person', 'Topic'): ['DISCUSSES', 'MENTIONS'],
+    ('Person', 'Organization'): ['CONTROLS'],
+    ('Organization', 'Organization'): ['CONTROLS'],
+    ('Organization', 'Resource'): ['CONTROLS'],
+    ('Person', 'Resource'): ['CONTROLS'],
+    ('Organization', 'Location'): ['CONTROLS'],
+    ('Person', 'Person'): ['INFLUENCES'],
+    ('Organization', 'Person'): ['INFLUENCES'],
+    ('Event', 'Person'): ['INFLUENCES'],
+    ('Technology', 'Organization'): ['INFLUENCES'],
+    ('Topic', 'Person'): ['INFLUENCES'],
+    ('Topic', 'Organization'): ['INFLUENCES'],
+    ('Content', 'Person'): ['INFLUENCES'],
+    ('Content', 'Organization'): ['INFLUENCES'],
+}
+
 async def generate_cypher_query(
-    natural_language_query: str,
-    ontology_schema: Optional[str] = None,
-    model_config_type: str = "flash", # Specifies 'flash' or 'pro' from config.yaml
-    # In a real scenario, you might pass a Graphiti SearchResults object here for context
-    # search_context: Optional[Any] = None
-) -> CypherQueryResult:
-    """
-    Generates a Cypher query from a natural language query using Gemini LLM.
+    nl_query: str,
+    ontology_schema: str,
+    model_config_key: str = 'flash'
+) -> Optional[CypherQueryResult]:
+    """Generates a Cypher query from a natural language query using a Gemini model.
 
     Args:
-        natural_language_query: The user's query in natural language.
-        ontology_schema: The ontology schema string. If None, it will be generated.
-        model_config_type: The key (e.g., 'flash', 'pro') from config.yaml to use for model ID and budget.
-        # search_context: Optional context from a preliminary Graphiti search.
+        nl_query: The natural language query.
+        ontology_schema: A string representation of the graph ontology.
+        model_config_key: The key for the model configuration in config.yaml.
 
     Returns:
-        A CypherQueryResult object containing the Cypher query and parameters.
-
-    Raises:
-        CypherGenerationError: If the LLM fails to generate a valid structured response.
+        A CypherQueryResult object or None if an error occurs.
     """
-    if ontology_schema is None:
-        print("Ontology schema not provided, generating it now...")
-        ontology_schema = get_ontology_schema_string()
-        if "ERROR:" in ontology_schema: # Basic check if schema generation failed
-            raise CypherGenerationError(f"Failed to generate ontology schema: {ontology_schema}")
+    if "ERROR:" in ontology_schema:
+        raise CypherGenerationError(f"Failed to generate ontology schema: {ontology_schema}")
 
-    # Construct the prompt for the Gemini LLM
-    prompt_parts = [
-        "You are an expert Cypher query generator for a Neo4j graph database.",
-        "Your task is to translate the user's natural language query into an executable Cypher query, "
-        "based on the provided ontology schema.",
-        "\n## Ontology Schema:",
-        ontology_schema,
-        "\n## Instructions:",
-        "1. Generate a Cypher query that accurately reflects the user's intent.",
-        "2. Use the property names and relationship types exactly as defined in the schema.",
-        "3. For temporal filtering (e.g., finding active relationships at the current time), use the parameter `$current_datetime`. "
-        "   The application will provide the actual datetime value for this parameter at runtime.",
-        "   A typical condition for an active relationship 'r' is: "
-        "   `r.valid_at <= $current_datetime AND (r.invalid_at IS NULL OR r.invalid_at > $current_datetime)`.",
-        "4. If the user's query implies filtering by specific dates or date ranges other than 'now', incorporate those specific dates directly or as parameters.",
-        "5. Return the Cypher query and any necessary parameters (including `$current_datetime` if used) in the specified JSON format.",
-        "6. Provide a brief explanation of how the query addresses the user's request.",
-        "\n## User's Natural Language Query:",
-        natural_language_query,
-        "\n## Required Output Format:",
-        "Return a single JSON object matching the Pydantic model `CypherQueryResult`:",
-        json.dumps(CypherQueryResult.model_json_schema(), indent=2), # Convert schema dict to JSON string
-    ]
+    edge_map_str = "\n".join(f"- ({source}, {target}) -> {rels}" for (source, target), rels in EDGE_TYPE_MAP.items())
 
-    prompt = "\n".join(prompt_parts)
+    system_prompt = f"""You are an expert Neo4j Cypher query writer. Your task is to convert a natural language question into a Cypher query based on a provided graph schema. Follow these rules strictly.
 
-    # Initialize the Gemini model
-    # Load model_id and thinking_budget from config.yaml based on gemini_model_name
-    # This assumes gemini_model_name is a key like 'pro' or 'flash' if we want to use config.yaml directly
-    # For now, we are passing the full model_id, so we need a way to map back or adjust loading
-    # Let's adjust the logic: if gemini_model_name is a full ID, we try to find its type ('pro' or 'flash')
-    # or we directly use the passed gemini_model_name and fetch its specific budget if defined.
-    # For simplicity in this step, we'll assume `gemini_model_name` is used to fetch budget if it's a key in config.
-    # However, the current call from main passes the full ID. So, we need to adjust how `load_config` is used or what `gemini_model_name` signifies.
+### CRITICAL RULES:
+1.  **Relationship Types**: The graph has only TWO relationship types: `RELATES_TO` and `MENTIONS`. You MUST use one of these.
+2.  **Relationship `name` Property**: To specify the *meaning* of a relationship (e.g., who created something), you MUST filter on the `name` property of the relationship. For example: `MATCH (a)-[r:RELATES_TO]->(b) WHERE r.name = 'CREATES'`.
+3.  **Node and Property Names**: You MUST use the exact node labels (e.g., `Organization`, `Technology`) and property names (e.g., `organization_name`, `tech_name`) provided in the schema. DO NOT invent or assume property names.
+4.  **Temporal Filtering**: For queries involving dates, use the `$current_datetime` parameter for the present moment. A relationship is considered current if `r.valid_at <= $current_datetime` AND (`r.invalid_at IS NULL` OR `r.invalid_at > $current_datetime`).
 
-    # Let's refine: The `generate_cypher_query` function takes `gemini_model_name` which IS the model_id.
-    # We need to determine if this model_id corresponds to 'pro' or 'flash' to get its budget from config.
-    # This is a bit circular. A better approach: `main` decides 'pro' or 'flash', loads config, then passes model_id and budget.
+### PERFECT QUERY EXAMPLE:
+*   **Natural Language Question**: "Who created GPT-4?"
+*   **Correct Cypher Query and Parameters**:
+    ```json
+    {{
+        "cypher_query": "MATCH (creator:Organization)-[r:RELATES_TO]->(tech:Technology) WHERE r.name = 'CREATES' AND tech.tech_name = $tech_name RETURN creator.organization_name",
+        "parameters": {{
+            "tech_name": "GPT-4"
+        }},
+        "explanation": "This query finds an Organization that has a 'CREATES' relationship with a Technology named 'GPT-4' and returns the organization's name."
+    }}
+    ```
 
-    # For now, to make progress and test with the flash model's budget:
-    # We know `main` is calling with flash_model_id. We'll hardcode fetching 'flash' budget for this test.
-    # Load model_id and thinking_budget from config.yaml based on model_config_type
-    effective_model_name, thinking_budget = load_config(model_config_type)
-    print(f"Using model configuration: '{model_config_type}' (ID: {effective_model_name}, Budget: {thinking_budget})")
+### YOUR TASK
+Here is the graph schema:
+{ontology_schema}
+
+This map shows the valid `name` values for a `RELATES_TO` relationship between pairs of node labels.
+{edge_map_str}
+
+Based on the schema and rules, generate a Cypher query and parameters for the following natural language question.
+User Query: {nl_query}
+
+You MUST provide your response as a single, valid JSON object that conforms to the following Pydantic model. Do not include any text or markdown formatting before or after the JSON object.
+
+Here is the Pydantic model for your reference:
+```python
+class CypherQueryResult(BaseModel):
+    cypher_query: str
+    parameters: Dict[str, Any]
+    explanation: str
+```
+"""
+
+    effective_model_name, thinking_budget = load_config(model_config_key)
+    print(f"Using model configuration: '{model_config_key}' (ID: {effective_model_name}, Budget: {thinking_budget})")
 
     try:
         client = genai.Client(http_options=HttpOptions(api_version="v1"))
@@ -131,26 +182,21 @@ async def generate_cypher_query(
         gen_config_params = {"response_mime_type": "application/json"}
         if thinking_budget > 0:
             print(f"Applying thinking_budget: {thinking_budget} for model {effective_model_name}")
-            gen_config_params["thinking_config"] = ThinkingConfig(budget=thinking_budget)
+            gen_config_params["thinking_config"] = ThinkingConfig(thinking_budget=thinking_budget)
         
         config = GenerateContentConfig(**gen_config_params)
 
         response = await client.aio.models.generate_content(
-            model=effective_model_name, # Use the model_id loaded from config
-            contents=prompt,
+            model=effective_model_name,
+            contents=system_prompt,
             config=config
         )
     except Exception as e:
-        # Add more specific error logging if possible
-        # For example, check if e has attributes like e.response for more details
         error_message = f"Error calling Gemini API (via google.genai Client): {e}"
-        # if hasattr(e, 'response') and e.response:
-        #     error_message += f" | Response: {e.response}"
-        print(f"DEBUG: Prompt sent to LLM:\n{prompt[:1000]}...\n") # Log first 1k chars of prompt
+        print(f"DEBUG: Prompt sent to LLM:\n{system_prompt[:1500]}...\n")
         raise CypherGenerationError(error_message)
 
     try:
-        # The response object from client.models.generate_content_async should have a .text attribute
         if not response.text:
              raise CypherGenerationError("Gemini API (via google.genai Client) returned an empty response.")
 
@@ -184,13 +230,20 @@ async def main():
             print("WARNING: GOOGLE_API_KEY not set and not using Vertex AI. Calls may fail if model is not public.")
 
 
-    test_nl_query = "What organizations are developing AI technologies that were announced after January 2023?"
+    test_nl_query = "Who created GPT-4?"
 
     print(f"\nNatural Language Query: {test_nl_query}")
 
     try:
+        print("Generating ontology schema for prompt...")
+        ontology_schema = get_ontology_schema_string()
+        
         # Use 'flash' model type from config.yaml, which includes its thinking_budget
-        result = await generate_cypher_query(test_nl_query, model_config_type="flash")
+        result = await generate_cypher_query(
+            nl_query=test_nl_query,
+            ontology_schema=ontology_schema,
+            model_config_key="flash",
+        )
         print("\nSuccessfully generated Cypher query:")
         print(f"  Query: {result.cypher_query}")
         print(f"  Parameters: {result.parameters}")
@@ -200,10 +253,19 @@ async def main():
         if result.cypher_query:
             print("\nAttempting to execute generated Cypher query...")
             try:
+                # Get the current time in UTC and format it as ISO 8601 string
+                from datetime import datetime, timezone
+                now_utc = datetime.now(timezone.utc).isoformat()
+
+                # IMPORTANT: Override any placeholder for current_datetime with the actual current time.
+                # The LLM is instructed to use the parameter '$current_datetime', so we ensure it's set correctly.
+                if 'current_datetime' in result.parameters:
+                    print(f"Replacing placeholder `current_datetime` with actual value: {now_utc}")
+                    result.parameters['current_datetime'] = now_utc
+
                 query_execution_results = execute_cypher_query(
                     query=result.cypher_query,
                     parameters=result.parameters
-                    # database_name can be specified here if needed, e.g., os.getenv("NEO4J_DATABASE_MAIN")
                 )
                 print("\nSuccessfully executed Cypher query.")
                 print(f"Results ({len(query_execution_results)} records):")

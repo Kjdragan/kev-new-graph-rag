@@ -1,0 +1,44 @@
+[
+  {
+    "label": "Episodic"
+  },
+  {
+    "label": "Entity"
+  },
+  {
+    "label": "Community"
+  },
+  {
+    "label": "Organization"
+  },
+  {
+    "label": "Topic"
+  },
+  {
+    "label": "Person"
+  },
+  {
+    "label": "Content"
+  },
+  {
+    "label": "Technology"
+  },
+  {
+    "label": "Resource"
+  },
+  {
+    "label": "Location"
+  },
+  {
+    "label": "Event"
+  },
+  {
+    "label": "Agreement"
+  },
+  {
+    "label": "__Node__"
+  },
+  {
+    "label": "__Entity__"
+  }
+]
