@@ -366,3 +366,32 @@ consistency with the ingestion pipeline.
 The original data mapping challenges are now **obsolete** - semantic search
 finds relevant information regardless of exact relationship naming conventions
 used by Graphiti during ingestion.
+
+## **June 2025 Update: Graphiti-Gemini Integration Insights**
+
+### **Key Discovery:**
+
+After extensive testing and debugging, we've successfully integrated Graphiti's search capabilities with our custom Gemini embeddings. A significant discovery is that Graphiti includes a built-in Gemini integration in `graphiti_core/embedders/gemini.py` that supports configurable embedding models and dimensions.
+
+### **Technical Details:**
+
+- **GeminiEmbedderConfig** in Graphiti supports:
+  - `embedding_model`: Can be set to 'gemini-embedding-001' (default is 'embedding-001')
+  - `embedding_dim`: Can be set to 1536 to match our Neo4j database (default is 1024)
+  - `api_key`: Can be left as None to use ADC authentication
+
+- **All three search methods** now work correctly:
+  1. Standard hybrid search with direct embedding injection
+  2. Advanced search with recipe-based configuration
+  3. Entity-focused search with center node reranking
+
+### **Future Opportunity:**
+
+While our current implementation uses a custom embedding class for compatibility with the existing ingestion pipeline, we could potentially simplify by using Graphiti's built-in `GeminiEmbedder` with proper configuration for both ingestion and query processes. This would eliminate the need for our custom embedding class while maintaining dimensional compatibility.
+
+### **Next Steps:**
+
+1. Continue building out the broader project integration
+2. Test the hybrid search pipeline with more complex queries and real-world scenarios
+3. Consider refactoring the ingestion pipeline to use Graphiti's native Gemini integration in a future update
+4. Develop a comprehensive user interface for interacting with the knowledge graph

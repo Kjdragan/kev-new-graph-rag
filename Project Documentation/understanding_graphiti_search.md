@@ -107,6 +107,19 @@ This document outlines the findings from reviewing the `graphiti-core` library's
 - Set `embedder=None` in Graphiti initialization since we provide embeddings directly
 - This completely eliminates OpenAI API calls from the search pipeline
 
+### 5. Graphiti's Built-in Gemini Integration ✅
+
+**Discovery**: Graphiti includes a built-in Gemini integration in `graphiti_core/embedders/gemini.py` that supports configurable embedding models and dimensions.
+
+**Key Parameters**:
+- `GeminiEmbedderConfig` supports:
+  - `embedding_model`: Default is 'embedding-001', can be set to 'gemini-embedding-001'
+  - `embedding_dim`: Default is 1024, can be set to 1536 to match our Neo4j database
+  - `api_key`: Optional, can be None to use ADC authentication
+
+**Future Opportunity**: 
+While our current implementation uses a custom embedding class for compatibility with the ingestion pipeline, we could potentially simplify by using Graphiti's built-in `GeminiEmbedder` with proper configuration for both ingestion and query processes. This would eliminate the need for our custom embedding class while maintaining dimensional compatibility.
+
 ## Current Implementation: Hybrid Search with Graphiti
 
 Our production implementation (`src/graph_querying/graphiti_native_search.py`) provides a complete hybrid search solution:

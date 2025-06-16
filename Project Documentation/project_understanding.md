@@ -77,15 +77,40 @@ Configuration is managed externally to avoid hardcoding and facilitate different
 
 **All scripts should load configurations from these files.** New configurable parameters should be added to these files as appropriate.
 
-## 6. Key Project Directories
+## 6. Key Project Directories and Files
 
+### Directories
 *   **Project Root:** `C:\Users\kevin\repos\kev-new-graph-rag\`
 *   **Ontology:** `src\ontology_templates\universal_ontology.py`
 *   **Ingestion Scripts:** `scripts\` (e.g., `ingest_gdrive_documents.py`)
-*   **Graph Querying Module (to be developed):** `src\graph_querying\`
+*   **Graph Querying Module:** `src\graph_querying\`
 *   **Project Documentation:** `Project Documentation\`
 *   **Graphiti Core (Dependency):** `c:\Users\kevin\repos\graphiti\graphiti_core\`
 *   **Graphiti Examples (Dependency):** `c:\Users\kevin\repos\graphiti\examples\`
+
+### Key Files
+
+#### Graph Querying Implementation
+*   **Graphiti Native Search:** `src\graph_querying\graphiti_native_search.py`
+    * Implements hybrid search using Graphiti's native search capabilities
+    * Integrates custom Gemini embeddings with Graphiti's search and reranking
+    * Provides multiple search methods: hybrid_search, entity_focused_search, advanced_search_with_recipe
+
+*   **Test Script:** `src\graph_querying\test_hybrid_search.py`
+    * Validates embedding compatibility (1536-dimensional embeddings)
+    * Tests all search methods with various queries
+    * Confirms proper authentication and integration
+
+*   **Custom Embedding:** `src\utils\embedding.py`
+    * Contains `CustomGeminiEmbedding` class used for 1536-dimensional embeddings
+    * Configured to use `gemini-embedding-001` model via Vertex AI
+    * Authenticates using Application Default Credentials (ADC)
+
+#### Graphiti Integration Files
+*   **Gemini Integration:** `graphiti_core\embedders\gemini.py` (in Graphiti dependency)
+    * Contains `GeminiEmbedder` and `GeminiEmbedderConfig` classes
+    * Supports configurable embedding model and dimensionality
+    * Can be used with ADC authentication for production environments
 
 ## 7. Query Pipeline Status: Pivot Complete & Validated
 
