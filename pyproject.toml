@@ -36,6 +36,8 @@ dependencies = [
     "streamlit>=1.8.0",
     "fastapi[all]>=0.115.9",
     "uvicorn>=0.34.3",
+    "protobuf==3.20.3",
+    "requests>=2.32.4",
 ]
 
 [build-system]
