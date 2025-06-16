@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../graphiti/graphiti_core"
+		},
+		{
+			"path": "../graphiti/examples"
+		}
+	],
+	"settings": {}
+}
