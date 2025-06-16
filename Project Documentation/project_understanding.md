@@ -102,9 +102,13 @@ Configuration is managed externally to avoid hardcoding and facilitate different
     * Confirms proper authentication and integration
 
 *   **Custom Embedding:** `src\utils\embedding.py`
-    * Contains `CustomGeminiEmbedding` class used for 1536-dimensional embeddings
-    * Configured to use `gemini-embedding-001` model via Vertex AI
-    * Authenticates using Application Default Credentials (ADC)
+    *   Contains the `CustomGeminiEmbedding` class, which serves as the primary mechanism for generating Gemini text embeddings (1536-dimensional, `models/embedding-001`) within the project.
+    *   **Rationale for Custom Implementation vs. Graphiti's `GeminiEmbedder`:**
+        *   **Vertex AI ADC Integration:** `CustomGeminiEmbedding` is explicitly designed to use Google Cloud Vertex AI with Application Default Credentials (ADC). It correctly sets the `GOOGLE_GENAI_USE_VERTEXAI=True` environment variable and manages `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`, ensuring seamless authentication in the GCP environment. Graphiti's built-in `GeminiEmbedder` (as of `graphiti-core v0.12.0`) is primarily oriented towards API key-based authentication with the Google AI Gemini API and lacks this explicit Vertex AI ADC setup.
+        *   **`task_type` and `title` Parameter Support:** The custom class passes `task_type` (e.g., "RETRIEVAL_DOCUMENT", "RETRIEVAL_QUERY") and an optional `title` to the Gemini embedding API. These parameters are recommended by Google for optimizing embedding quality for specific use cases, which is crucial for a high-performance RAG system. Graphiti's `GeminiEmbedder` does not currently support these parameters.
+        *   **LlamaIndex Compatibility:** `CustomGeminiEmbedding` inherits from `llama_index.core.embeddings.BaseEmbedding`, allowing for direct integration with LlamaIndex components used elsewhere in the ingestion pipeline.
+        *   **Centralized Configuration:** It sources model names and dimensionality from the project's central `config.yaml`, promoting consistency.
+    *   This approach provides a robust and tailored embedding solution that meets the project's specific architectural and authentication requirements, offering more control and feature utilization than the generic embedder provided by Graphiti at the time of this decision.
 
 #### Graphiti Integration Files
 *   **Gemini Integration:** `graphiti_core\embedders\gemini.py` (in Graphiti dependency)
