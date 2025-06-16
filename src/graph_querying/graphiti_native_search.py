@@ -205,9 +205,10 @@ class GraphitiNativeSearcher:
             logger.info(f"Generated {len(query_embedding)}-dimensional query embedding")
             
             # Use Graphiti's search method with center node for reranking
+            # Note: We don't pass query_vector here as it's not supported
+            # Instead, we rely on the Gemini embedder configured for the Graphiti instance
             search_results = await self.graphiti.search(
                 query=query,
-                query_vector=query_embedding,
                 center_node_uuid=center_node_uuid,
                 num_results=num_results,
                 search_filter=SearchFilters()
