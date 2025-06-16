@@ -1,0 +1,7 @@
+Google Ingest 2: The Rise of Edge AI and Federated Learning (2025)
+
+In 2025, Edge AI and federated learning are transforming how data is processed and models are trained. Devices at the edge—from smartphones to industrial sensors—can now run advanced AI models, enabling real-time insights and privacy-preserving analytics.
+
+Federated learning frameworks allow organizations to collaboratively train models on decentralized data without sharing sensitive information. This paradigm is accelerating innovation in healthcare, finance, and IoT, where data locality and security are paramount.
+
+The integration of edge AI with knowledge graphs and vector search is creating new opportunities for adaptive, context-aware applications. Regulatory bodies are also establishing new standards for transparency and auditability in distributed AI systems.
