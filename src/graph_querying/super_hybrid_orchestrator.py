@@ -5,9 +5,9 @@ import asyncio
 from typing import Dict, Any
 from loguru import logger
 
-from utils.config_loader import get_config
+from utils.config_models import ChromaDBConfig
 from utils.chroma_ingester import ChromaIngester
-from utils.embedding import get_embedding_model
+from utils.embedding import CustomGeminiEmbedding
 from src.graph_querying.graphiti_native_search import GraphitiNativeSearcher
 
 class SuperHybridOrchestrator:
@@ -20,11 +20,12 @@ class SuperHybridOrchestrator:
         """Initializes the orchestrator and its underlying clients."""
         logger.info("Initializing SuperHybridOrchestrator...")
         try:
-            config = get_config()
-            embedding_model = get_embedding_model()
+            # Load only the configuration needed for this orchestrator
+            chroma_config = ChromaDBConfig()
+            embedding_model = CustomGeminiEmbedding()
             
             # Initialize ChromaDB client via ChromaIngester
-            self.chroma_ingester = ChromaIngester(config.chromadb, embedding_model)
+            self.chroma_ingester = ChromaIngester(chroma_config, embedding_model)
             
             # Initialize Graphiti searcher
             self.graphiti_searcher = GraphitiNativeSearcher()

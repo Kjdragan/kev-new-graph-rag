@@ -38,6 +38,8 @@ dependencies = [
     "uvicorn>=0.34.3",
     "protobuf==3.20.3",
     "requests>=2.32.4",
+    "youtube-transcript-api>=1.1.0",
+    "pydantic-settings>=2.9.1",
 ]
 
 [build-system]

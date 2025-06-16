@@ -16,6 +16,9 @@ from utils.neo4j_ingester import Neo4jIngester, DocumentIngestionData
 
 # Note: LlamaIndex documents are not directly JSON serializable, so we handle them carefully.
 from llama_index.core.schema import Document as LlamaDocument
+from llama_index.core.node_parser import SentenceSplitter
+from youtube_transcript_api import YouTubeTranscriptApi
+import uuid
 
 class LoadDocumentsFromGDrive(IngestionStep):
     """An ingestion step to load documents from a Google Drive folder."""
@@ -40,6 +43,41 @@ class LoadDocumentsFromGDrive(IngestionStep):
             logger.success(f"Successfully loaded {len(documents)} documents from Google Drive.")
         except Exception as e:
             logger.error(f"Failed to load documents from Google Drive: {e}", exc_info=True)
+            context.add_error(e)
+            context.abort()
+
+        return context
+
+
+class ChunkDocument(IngestionStep):
+    """An ingestion step to chunk a single document into multiple smaller documents."""
+
+    def __init__(self, chunk_size=1024, chunk_overlap=20):
+        self.text_splitter = SentenceSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+
+    async def run(self, context: IngestionContext) -> IngestionContext:
+        documents: List[LlamaDocument] = context.get("documents")
+        if not documents or len(documents) != 1:
+            logger.warning(f"ChunkDocument step expects a single document in the context, but found {len(documents) if documents else 0}. Skipping chunking.")
+            # Pass through the original documents if they exist
+            if documents:
+                context.set("parsed_llama_docs", documents)
+            return context
+
+        doc = documents[0]
+        logger.info(f"Chunking document: {doc.metadata.get('file_name', doc.id_)}")
+
+        try:
+            nodes = self.text_splitter.get_nodes_from_documents([doc])
+            
+            # Convert nodes back to LlamaDocument objects for compatibility
+            chunked_docs = [LlamaDocument(text=node.get_content(), metadata=node.metadata) for node in nodes]
+
+            context.set("parsed_llama_docs", chunked_docs)
+            logger.success(f"Successfully chunked document into {len(chunked_docs)} smaller documents.")
+
+        except Exception as e:
+            logger.error(f"Failed to chunk document {doc.id_}: {e}", exc_info=True)
             context.add_error(e)
             context.abort()
 
@@ -206,6 +244,58 @@ class IngestToChromaDB(IngestionStep):
 
         except Exception as e:
             logger.error(f"Failed to ingest documents into ChromaDB: {e}", exc_info=True)
+            context.add_error(e)
+            context.abort()
+
+        return context
+
+
+class GetYoutubeTranscript(IngestionStep):
+    """An ingestion step to load a transcript from a YouTube URL."""
+
+    async def run(self, context: IngestionContext) -> IngestionContext:
+        youtube_url = context.get("youtube_url")
+        if not youtube_url:
+            logger.warning("No 'youtube_url' found in context. Skipping YouTube transcript loading.")
+            return context
+
+        logger.info(f"Loading transcript from YouTube URL: {youtube_url}")
+
+        try:
+            # Extract video ID from URL
+            if "v=" in youtube_url:
+                video_id = youtube_url.split("v=")[1].split("&")[0]
+            elif "youtu.be/" in youtube_url:
+                video_id = youtube_url.split("youtu.be/")[1].split("?")[0]
+            else:
+                raise ValueError("Invalid YouTube URL format.")
+
+            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+            
+            # Combine transcript parts into a single text block
+            transcript_text = " ".join([item['text'] for item in transcript_list])
+
+            # Create a LlamaDocument. This will be chunked by a subsequent step.
+            doc = LlamaDocument(
+                id_=str(uuid.uuid4()),
+                text=transcript_text,
+                metadata={
+                    "source": "youtube",
+                    "video_id": video_id,
+                    "youtube_url": youtube_url,
+                    "file_name": f"youtube_{video_id}.txt" # for compatibility with downstream steps
+                }
+            )
+            
+            # Set the single, raw document in the context
+            context.set("documents", [doc])
+            context.set("source_document_id", doc.id_) # for compatibility
+            context.set("source_file_name", doc.metadata["file_name"]) # for compatibility
+
+            logger.success(f"Successfully loaded transcript for video ID: {video_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to load transcript from YouTube URL {youtube_url}: {e}", exc_info=True)
             context.add_error(e)
             context.abort()
 

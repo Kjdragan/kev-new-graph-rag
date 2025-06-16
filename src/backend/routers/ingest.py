@@ -11,19 +11,21 @@ from src.ingestion.orchestrator import IngestionOrchestrator
 
 router = APIRouter()
 
-# Initialize the orchestrator once. In a production app, you might use a dependency injection system.
-# For simplicity, we'll create it here. It will be re-created on each server reload.
-# This also ensures it picks up any config changes upon reload.
-orchestrator = IngestionOrchestrator()
+# The IngestionOrchestrator will be initialized on-demand within each endpoint
+# to avoid requiring all environment variables to be set at server startup.
 
 class GDriveIngestionRequest(BaseModel):
     folder_id: str
 
+class YouTubeIngestionRequest(BaseModel):
+    url: str
+
 @router.post("/ingest/document")
 async def ingest_document(file: UploadFile = File(...)):
     """Receives a local document, saves it temporarily, and ingests it via the orchestrator."""
-    # Use a temporary file to handle the upload, ensuring it's available for parsing
     try:
+        orchestrator = IngestionOrchestrator()
+        # Use a temporary file to handle the upload, ensuring it's available for parsing
         with tempfile.NamedTemporaryFile(delete=False, suffix=file.filename) as tmp:
             tmp.write(await file.read())
             tmp_path = tmp.name
@@ -34,7 +36,8 @@ async def ingest_document(file: UploadFile = File(...)):
         result = await orchestrator.run_local_file_ingestion(file_path=tmp_path, file_name=file.filename)
         
         if result.get("errors"):
-            raise HTTPException(status_code=500, detail=f"Ingestion failed with errors: {result['errors']}")
+            logger.error(f"Ingestion failed for {file.filename} with errors: {result['errors']}")
+            raise HTTPException(status_code=500, detail={"message": "Ingestion failed", "errors": result['errors']})
 
         return {
             "message": f"Successfully ingested document: {file.filename}",
@@ -42,8 +45,8 @@ async def ingest_document(file: UploadFile = File(...)):
         }
 
     except Exception as e:
-        logger.error(f"Failed to ingest document {file.filename}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to process document: {str(e)}")
+        logger.exception(f"An unexpected error occurred during ingestion for document {file.filename}")
+        raise HTTPException(status_code=500, detail={"message": "An unexpected server error occurred", "error": str(e)})
     finally:
         # Clean up the temporary file
         if 'tmp_path' in locals() and os.path.exists(tmp_path):
@@ -55,11 +58,13 @@ async def ingest_gdrive_documents(request_data: GDriveIngestionRequest = Body(..
     """Receives a GDrive folder ID and ingests its contents via the orchestrator."""
     logger.info(f"Received request to ingest from Google Drive folder: {request_data.folder_id}")
     try:
+        orchestrator = IngestionOrchestrator()
         # The orchestrator now handles the entire GDrive logic
         result = await orchestrator.run_gdrive_ingestion(folder_id=request_data.folder_id)
 
         if result.get("errors"):
-            raise HTTPException(status_code=500, detail=f"Ingestion failed with errors: {result['errors']}")
+            logger.error(f"Ingestion failed for GDrive folder {request_data.folder_id} with errors: {result['errors']}")
+            raise HTTPException(status_code=500, detail={"message": "Ingestion failed", "errors": result['errors']})
 
         return {
             "message": f"Google Drive ingestion complete for folder {request_data.folder_id}.",
@@ -67,15 +72,26 @@ async def ingest_gdrive_documents(request_data: GDriveIngestionRequest = Body(..
         }
 
     except Exception as e:
-        logger.error(f"Failed to ingest from Google Drive folder {request_data.folder_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to ingest from Google Drive: {str(e)}")
+        logger.exception(f"An unexpected error occurred during GDrive ingestion for folder {request_data.folder_id}")
+        raise HTTPException(status_code=500, detail={"message": "An unexpected server error occurred", "error": str(e)})
 
 @router.post("/ingest/youtube")
-async def ingest_youtube_transcript(youtube_url: str):
-    # This is now the next logical step to implement using the new modular pipeline.
-    logger.info(f"Placeholder for YouTube transcript ingestion for URL: {youtube_url}")
-    # Example of how it would work:
-    # 1. Create a new IngestionStep: GetYoutubeTranscript
-    # 2. Create a new pipeline in the orchestrator: get_youtube_pipeline()
-    # 3. Call it: await orchestrator.run_youtube_ingestion(youtube_url)
-    return {"message": f"YouTube transcript ingestion for {youtube_url} is not yet implemented."}
+async def ingest_youtube_transcript(request_data: YouTubeIngestionRequest = Body(...)):
+    """Receives a YouTube URL and ingests its transcript via the orchestrator."""
+    logger.info(f"Received request to ingest from YouTube URL: {request_data.url}")
+    try:
+        orchestrator = IngestionOrchestrator()
+        result = await orchestrator.run_youtube_ingestion(youtube_url=request_data.url)
+
+        if result.get("errors"):
+            logger.error(f"Ingestion failed for YouTube URL {request_data.url} with errors: {result['errors']}")
+            raise HTTPException(status_code=500, detail={"message": "Ingestion failed", "errors": result['errors']})
+
+        return {
+            "message": f"YouTube transcript ingestion complete for URL {request_data.url}.",
+            "summary": result
+        }
+
+    except Exception as e:
+        logger.exception(f"An unexpected error occurred during YouTube ingestion for URL {request_data.url}")
+        raise HTTPException(status_code=500, detail={"message": "An unexpected server error occurred", "error": str(e)})

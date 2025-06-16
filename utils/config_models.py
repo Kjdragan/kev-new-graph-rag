@@ -3,18 +3,20 @@
 from pathlib import Path
 from typing import Optional, List
 
-from pydantic import BaseModel, Field, validator
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class GDriveReaderConfig(BaseModel):
+class GDriveReaderConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix='GDRIVE_', env_file='.env', env_file_encoding='utf-8', extra='ignore')
     """Configuration for Google Drive integration."""
     credentials_path: str = Field(
         default="c:\\Users\\kevin\\repos\\kev-graph-rag\\credentials\\gdrive_service_account.json",
         description="Path to the Google service account credentials JSON file"
     )
-    folder_id: str = Field(
-        ...,
-        description="Google Drive folder ID to ingest files from"
+    folder_id: Optional[str] = Field(
+        default=None,
+        description="The ID of the Google Drive folder to process"
     )
     impersonated_user_email: Optional[str] = Field(
         default=None,
@@ -25,19 +27,14 @@ class GDriveReaderConfig(BaseModel):
         description="Google API scopes required for access"
     )
 
-    @validator('credentials_path')
-    def validate_credentials_path(cls, v):
-        path = Path(v)
-        # We won't check for path.exists() here at model validation time,
-        # as the file might not be present during initial setup or in all environments.
-        # The check should happen at runtime when the GDriveReader is initialized.
-        return str(path.absolute())
 
 
-class LlamaParseConfig(BaseModel):
+
+class LlamaParseConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix='LLAMAPARSE_', env_file='.env', env_file_encoding='utf-8', extra='ignore')
     """Configuration for LlamaParse integration."""
-    api_key: str = Field(
-        ...,
+    api_key: Optional[str] = Field(
+        default=None,
         description="LlamaParse API key"
     )
     base_url: Optional[str] = Field(
@@ -47,7 +44,8 @@ class LlamaParseConfig(BaseModel):
     # Add any other LlamaParse specific settings from kev_adv_rag if needed
 
 
-class ChromaDBConfig(BaseModel):
+class ChromaDBConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix='CHROMA_', env_file='.env', env_file_encoding='utf-8', extra='ignore')
     """Configuration for ChromaDB integration."""
     host: str = Field(default="localhost", description="ChromaDB server host")
     port: int = Field(default=8000, description="ChromaDB server port")
@@ -69,14 +67,16 @@ class ChromaDBConfig(BaseModel):
     )
 
 
-class Neo4jConfig(BaseModel):
+class Neo4jConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix='NEO4J_', env_file='.env', env_file_encoding='utf-8', extra='ignore')
     """Configuration for Neo4j integration."""
     uri: str = Field(..., description="Neo4j connection URI (e.g., 'neo4j+s://your-instance.databases.neo4j.io')")
     user: str = Field(default="neo4j", description="Neo4j username")
     password: str = Field(..., description="Neo4j password")
 
 
-class EmbeddingConfig(BaseModel):
+class EmbeddingConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix='EMBEDDING_', env_file='.env', env_file_encoding='utf-8', extra='ignore')
     """Configuration for the embedding model."""
     model_name: str = Field(
         default="gemini-embedding-exp-03-07", 
@@ -89,10 +89,10 @@ class EmbeddingConfig(BaseModel):
 
 
 # Example of how these might be loaded or used in a main orchestrator config later
-class IngestionOrchestratorConfig(BaseModel):
-    gdrive: GDriveReaderConfig
-    llamaparse: LlamaParseConfig
-    chromadb: ChromaDBConfig
-    neo4j: Neo4jConfig
-    embedding: EmbeddingConfig
+class IngestionOrchestratorConfig(BaseSettings):
+    gdrive: GDriveReaderConfig = Field(default_factory=GDriveReaderConfig)
+    llamaparse: LlamaParseConfig = Field(default_factory=LlamaParseConfig)
+    chromadb: ChromaDBConfig = Field(default_factory=ChromaDBConfig)
+    neo4j: Neo4jConfig = Field(default_factory=Neo4jConfig)
+    embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     # Add other ingestion settings like target directories if we download files locally first

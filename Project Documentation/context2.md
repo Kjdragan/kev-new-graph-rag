@@ -1,94 +1,46 @@
 # Project Development Log & Lessons Learned
 
-## Summary of Recent Work (UI-Driven Ingestion)
-
-This document tracks the progress of implementing a UI-driven document ingestion pipeline.
-
-### Key Features Implemented
-
-1.  **Backend Ingestion Endpoint:**
-    - A new POST endpoint was created at `/api/v2/ingest/document` in `src/backend/routers/ingest.py`.
-    - This endpoint accepts a file upload (`UploadFile`).
-    - It reads the file content, decodes it, and passes it to the `GraphExtractor`.
-
-2.  **Core Ingestion Logic:**
-    - The endpoint initializes the `GraphExtractor` from `src/graph_extraction/extractor.py`.
-    - It calls the `extractor.extract()` method, providing the document's text content.
-    - The `universal_ontology.py` (`NODE_TYPES`, `RELATIONSHIP_TYPES`) is used to provide the schema for knowledge extraction.
-
-3.  **API Integration:**
-    - The new `ingest` router was registered with the main FastAPI application in `src/backend/main_api.py` to make the endpoint accessible.
-
-4.  **Frontend UI (Completed):**
-    - A file uploader component was added to the Streamlit interface in `src/app/main_ui.py`.
-    - It is placed in an `st.expander` to keep the UI clean.
-    - The UI calls the new backend endpoint to trigger the ingestion process and displays the status to the user.
-
----
-
-## Onboarding Instructions
-
-To get up to speed on this project, review the following files and directories. They provide essential context on the project's goals, architecture, configuration, and current implementation.
-
-### Core Project & Framework Documentation
-- **Frameworks:**
-  - `@[c:\Users\kevin\repos\kev-new-graph-rag\Project Documentation\workingwithgenai.md]` - Explains how to use the `google-genai` SDK with ADC.
-  - `@[c:\Users\kevin\repos\kev-new-graph-rag\Project Documentation\understanding_graphiti_search.md]` - Details the principles of Graphiti-native search.
-- **Overall Project:**
-  - `@[c:\Users\kevin\repos\kev-new-graph-rag\Project Documentation\project_understanding.md]` - High-level overview of the project goals and architecture.
-
-### Project-Specific Implementation & Configuration
-- **Configuration:**
-  - `@[c:\Users\kevin\repos\kev-new-graph-rag\.env]` - Environment variables for Neo4j, Google Cloud, etc.
-  - `@[c:\Users\kevin\repos\kev-new-graph-rag\config.yaml]` - Application-level configuration, including model IDs.
-- **Backend Code:**
-  - `@[c:\Users\kevin\repos\kev-new-graph-rag\src\backend]` - The main FastAPI application, including all routers (chat, graph, ingest).
-- **Querying & Ingestion:**
-  - `@[c:\Users\kevin\repos\kev-new-graph-rag\src\graph_querying\test_hybrid_search.py]` - Example usage of the `GraphitiNativeSearcher`.
-  - `@[c:\Users\kevin\repos\kev-new-graph-rag\scripts\ingest_gdrive_documents.py]` - The original manual ingestion script (Note: this is being replaced by the UI-driven workflow).
-
-*This list is dynamic and should be updated as the project evolves and manual scripts are replaced by modular, UI-driven components.*
-
-This document tracks the development progress, key architectural decisions, and lessons learned during the construction of the hybrid RAG system.
+This document tracks the major development milestones, architectural decisions, and key lessons learned during the construction of the hybrid RAG system.
 
 ## Key Development Milestones
 
-### 1. Refactoring Graph Visualization to be Graphiti-Native
+### 1. Migration to Modular, UI-Driven Ingestion
+**Status:** Complete
 
-**Initial State:** The graph visualization was initially implemented using a direct, raw Cypher query to fetch all nodes and relationships from Neo4j. 
+**Summary:** The original, script-based ingestion process (`scripts/ingest_gdrive_documents.py`) was completely replaced with a flexible, modular pipeline architecture.
+*   **Components:** `IngestionOrchestrator`, `IngestionPipeline`, and a series of `IngestionStep` classes were created in `src/ingestion`.
+*   **Features:** The new system supports ingestion from local file uploads, Google Drive folders, and YouTube URLs.
+*   **Interface:** Ingestion is now triggered exclusively through the Streamlit UI, which calls dedicated FastAPI endpoints in `src/backend/routers/ingest.py`.
+*   **Lesson Learned:** A modular pipeline is far more maintainable and extensible than monolithic scripts, making it easy to add new data sources and processing steps.
 
-**Problem:** The user correctly pointed out that this approach bypassed the `Graphiti` abstraction layer, which is a core component of the project's architecture. All database interactions are intended to flow through Graphiti to leverage its features like search recipes, reranking, and native query generation.
+### 2. Implementation of "Super Hybrid" Query Orchestration
+**Status:** Complete
 
-**Solution:**
-- The backend endpoint `/api/v2/graph/full_graph` in `src/backend/routers/graph.py` was refactored.
-- It now uses the `GraphitiNativeSearcher` class from `src/graph_querying/graphiti_native_search.py`.
-- Specifically, it calls the `advanced_search_with_recipe` method with a generic query (`*`) to fetch a representative sample of the graph.
-- The endpoint was converted to `async` to support the asynchronous nature of the `GraphitiNativeSearcher`.
+**Summary:** The query engine was upgraded from a simple graph search to a "Super Hybrid" model that leverages both the knowledge graph and the vector store.
+*   **Component:** The `SuperHybridOrchestrator` was created in `src/graph_querying/super_hybrid_orchestrator.py`.
+*   **Process:** For each query, it retrieves context from both ChromaDB (vector search) and Neo4j/Graphiti (graph search), then synthesizes the combined results using an LLM to generate a comprehensive answer.
+*   **Interface:** The main `/chat` endpoint now uses this orchestrator, and the Streamlit UI has been updated to display both graph and vector context.
+*   **Lesson Learned:** Combining retrieval methods provides more robust and contextually rich answers than either method alone.
 
-**Lesson Learned:** Adherence to the established architecture is critical. Using Graphiti-native functions instead of raw Cypher is essential for maintainability, scalability, and leveraging the full power of the framework.
+### 3. Refactoring Configuration with Pydantic-Settings
+**Status:** Complete
 
-### 2. Implementing UI-Driven Document Ingestion
+**Summary:** All configuration management was centralized and refactoreed to use the `pydantic-settings` library.
+*   **Component:** All configuration models are now defined in `src/utils/config_models.py` and inherit from `BaseSettings`.
+*   **Process:** Configuration is loaded automatically from the `.env` file at startup. This provides type safety and eliminates the need for manual `dotenv` or `yaml` parsing.
+*   **Lesson Learned:** Using a dedicated configuration library like `pydantic-settings` simplifies code, reduces boilerplate, and prevents runtime errors due to missing or malformed configuration.
 
-**Goal:** Enable users to upload documents directly through the Streamlit UI for ingestion into the knowledge graph.
+### 4. Enhanced Logging and Error Reporting
+**Status:** Complete
 
-**Implementation Steps:**
+**Summary:** The backend application's observability was significantly improved.
+*   **Logging:** Loguru was integrated into `src/backend/main_api.py` to provide detailed, structured, and colorized console logs.
+*   **Error Reporting:** The FastAPI endpoints were refactored to return structured JSON error messages instead of poorly formatted strings, making API-level debugging much easier.
+*   **Lesson Learned:** Investing in proper logging and error handling early is critical for efficient debugging, especially in a complex, multi-component system.
 
-1.  **Backend Endpoint:**
-    - A new endpoint `POST /api/v2/ingest/document` was created in `src/backend/routers/ingest.py`.
-    - This endpoint accepts a file upload (`UploadFile`).
-    - It reads the file content, decodes it, and passes it to the `GraphExtractor`.
+### 5. YouTube Transcript Ingestion
+**Status:** In Progress
 
-2.  **Core Ingestion Logic:**
-    - The endpoint initializes the `GraphExtractor` from `src/graph_extraction/extractor.py`.
-    - It calls the `extractor.extract()` method, providing the document's text content.
-    - The `universal_ontology.py` (`NODE_TYPES`, `RELATIONSHIP_TYPES`) is used to provide the schema for knowledge extraction.
-
-3.  **API Integration:**
-    - The new `ingest` router was registered with the main FastAPI application in `src/backend/main_api.py` to make the endpoint accessible.
-
-4.  **Frontend UI (In Progress):**
-    - Work has begun on adding a file uploader component to the Streamlit interface in `src/app/main_ui.py`.
-    - This will be placed in an `st.expander` to keep the UI clean.
-    - The UI will call the new backend endpoint to trigger the ingestion process and display the status to the user.
-
-**Next Steps:** Complete the frontend implementation for the file uploader and test the end-to-end ingestion flow.
+**Summary:** The modular ingestion pipeline was extended to support fetching and processing YouTube transcripts.
+*   **Components:** A `GetYoutubeTranscript` step was added to `src/ingestion/steps.py`, and a corresponding endpoint was added to the `ingest` router.
+*   **Current State:** The feature is implemented but currently undergoing debugging to resolve runtime errors in the ingestion pipeline.

@@ -3,13 +3,13 @@
 
 from typing import List
 from llama_index.core.schema import Document as LlamaDocument
-from utils.chroma_ingester import ChromaDocument
+
 
 def convert_llama_docs_to_chroma_docs(
     llama_docs: List[LlamaDocument],
     source_document_id: str,
     source_file_name: str
-) -> List[ChromaDocument]:
+) -> List[dict]:
     """Converts a list of LlamaIndex Document objects to ChromaDocument models.
 
     Args:
@@ -18,7 +18,7 @@ def convert_llama_docs_to_chroma_docs(
         source_file_name: The original filename of the source document.
 
     Returns:
-        A list of ChromaDocument objects ready for ingestion.
+        A list of document dictionaries ready for ingestion.
     """
     chroma_docs = []
     for doc in llama_docs:
@@ -32,11 +32,9 @@ def convert_llama_docs_to_chroma_docs(
             **doc.metadata
         }
         
-        chroma_docs.append(
-            ChromaDocument(
-                text=doc.text,
-                document_id=chunk_id,
-                metadata=metadata
-            )
-        )
+        chroma_docs.append({
+            "id": chunk_id,
+            "text": doc.text,
+            "metadata": metadata
+        })
     return chroma_docs

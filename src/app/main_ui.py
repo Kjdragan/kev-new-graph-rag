@@ -1,9 +1,35 @@
 # src/app/main_ui.py
+import sys
+import os
+
+# Add the project root to the Python path to resolve 'src' module imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+
 import streamlit as st
 import requests
 import os
 
+import logging
 from src.app.components.graph_viz import display_pyvis_graph
+
+# --- Logging Configuration ---
+log_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'logs')
+os.makedirs(log_dir, exist_ok=True)
+log_file_path = os.path.join(log_dir, 'frontend.log')
+
+# Use a basicConfig to set up the root logger
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    handlers=[
+        logging.FileHandler(log_file_path),
+        logging.StreamHandler(sys.stdout)  # Also log to console
+    ]
+)
+
+logger = logging.getLogger(__name__)
+logger.info("Frontend UI logging configured.")
+# --- End Logging Configuration ---
 
 # Get backend URL from environment variable or use a default
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8001/api/v2")
@@ -15,6 +41,7 @@ def get_chat_response(prompt: str) -> dict:
         response.raise_for_status()  # Raise an exception for bad status codes
         return response.json()
     except requests.exceptions.RequestException as e:
+        logger.error(f"Error connecting to backend for chat: {e}", exc_info=True)
         st.error(f"Error connecting to backend: {e}")
         return {}
 
@@ -51,6 +78,7 @@ with st.expander("📁 Ingest New Documents"):
                     st.rerun()
 
                 except requests.exceptions.RequestException as e:
+                    logger.error(f"Error during document ingestion request: {e}", exc_info=True)
                     st.error(f"Error during ingestion: {e}")
                     # Try to get more details from response if available
                     try:
@@ -87,7 +115,47 @@ with st.expander("📁 Ingest New Documents"):
                     st.rerun()
 
                 except requests.exceptions.RequestException as e:
-                    st.error(f"Error during Google Drive ingestion: {e}")
+                    logger.error(f"Error during GDrive ingestion request: {e}", exc_info=True)
+                    logger.error(f"Request exception details: {e.request.url} {e.request.method} {e.request.body} {e.request.headers}")
+                    st.error(f"Error during GDrive ingestion: {e}")
+                    try:
+                        error_detail = e.response.json().get("detail", e.response.text)
+                        st.error(f"Server error: {error_detail}")
+                    except:
+                        pass
+
+    st.markdown("---") # Separator
+
+    st.subheader("Ingest from YouTube")
+    # Use session state for the YouTube URL to allow resetting
+    if 'youtube_url' not in st.session_state:
+        st.session_state['youtube_url'] = ''
+    youtube_url = st.text_input("YouTube Video URL", value=st.session_state['youtube_url'], key='youtube_url_input')
+    if youtube_url:
+        if st.button("Ingest Transcript from YouTube"):
+            with st.spinner(f"Ingesting transcript from YouTube..."):
+                try:
+                    ingest_youtube_url = f"{BACKEND_URL}/ingest/youtube"
+                    response = requests.post(ingest_youtube_url, json={"youtube_url": youtube_url})
+                    response.raise_for_status()
+
+                    # Show clear success notification with details from the summary
+                    summary = response.json().get('summary', {})
+                    st.success(f"YouTube transcript ingestion complete!")
+                    st.info(
+                        f"Chunks Created: {summary.get('total_chunks_created', 'N/A')} | "
+                        f"Chroma Docs: {summary.get('ingested_chroma_count', 'N/A')} | "
+                        f"Neo4j Nodes: {summary.get('ingested_neo4j_nodes', 'N/A')} | "
+                        f"Neo4j Edges: {summary.get('ingested_neo4j_edges', 'N/A')}"
+                    )
+
+                    # Reset the URL input for a cleaner UX
+                    st.session_state['youtube_url'] = ''
+                    st.rerun()
+
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"Error during YouTube ingestion request: {e}", exc_info=True)
+                    st.error(f"Error during YouTube ingestion: {e}")
                     try:
                         error_detail = e.response.json().get("detail", e.response.text)
                         st.error(f"Server error: {error_detail}")

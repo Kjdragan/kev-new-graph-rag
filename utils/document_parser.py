@@ -13,6 +13,7 @@ nest_asyncio.apply()
 
 # Assuming config_models.py is in the same utils directory
 from .config_models import LlamaParseConfig
+from llama_index.core.schema import Document as LlamaDocument
 
 
 class DocumentParser:
@@ -49,7 +50,7 @@ class DocumentParser:
         retry=retry_if_exception_type(Exception),
         reraise=True
     )
-    async def aparse_file(self, file_path: Union[str, Path]) -> List[Dict[str, Any]]:
+    async def aparse_file(self, file_path: Union[str, Path]) -> List[LlamaDocument]:
         """Async parse a document from a local file path using LlamaParse's aparse method.
         
         Args:
@@ -77,32 +78,31 @@ class DocumentParser:
                 parsed_llama_documents = job_result
                 logger.info(f"Successfully async parsed {len(parsed_llama_documents) if hasattr(parsed_llama_documents, '__len__') else 'unknown number of'} sections from {path_obj.name}.")
             
-            # Extract text content from each parsed document/section
-            extracted_data = []
-            
+            # Convert parsed data to LlamaDocument objects
+            llama_documents = []
             for i, item in enumerate(parsed_llama_documents):
+                text = ""
+                metadata = {}
                 if hasattr(item, 'page') and hasattr(item, 'text'):
-                    extracted_data.append({
-                        "page_or_section_index": item.page,
-                        "text": item.text,
-                        "metadata": {"page": item.page}
-                    })
+                    text = item.text
+                    metadata = {"page": item.page}
                 elif hasattr(item, 'text'):
-                    extracted_data.append({
-                        "page_or_section_index": i,
-                        "text": item.text,
-                        "metadata": item.metadata if hasattr(item, 'metadata') else {}
-                    })
+                    text = item.text
+                    metadata = item.metadata if hasattr(item, 'metadata') else {}
                 elif isinstance(item, dict) and 'text' in item:
-                    extracted_data.append(item)
+                    text = item.get('text', '')
+                    metadata = item.get('metadata', {})
                 else:
                     logger.warning(f"Parsed document section {i} from {path_obj.name} has unexpected format. Content type: {type(item)}")
-                    logger.debug(f"Content preview: {str(item)[:100]}...")
-            
-            if not extracted_data:
-                logger.warning(f"LlamaParse returned no text sections for {path_obj.name}.")
+                    continue
+                
+                # Ensure file_path metadata is preserved for downstream steps
+                metadata['file_path'] = str(path_obj)
+                metadata['file_name'] = path_obj.name
 
-            return extracted_data
+                llama_documents.append(LlamaDocument(text=text, metadata=metadata))
+
+            return llama_documents
         except Exception as e:
             logger.error(f"LlamaParse async parsing failed for document {path_obj.name}: {str(e)}")
             logger.debug(f"Exception type: {type(e)}, Details: {repr(e)}")
@@ -114,7 +114,7 @@ class DocumentParser:
         retry=retry_if_exception_type(Exception),
         reraise=True
     )
-    def parse_file(self, file_path: Union[str, Path]) -> List[Dict[str, Any]]:
+    def parse_file(self, file_path: Union[str, Path]) -> List[LlamaDocument]:
         """Parse a document from a local file path using LlamaParse.
 
         Args:

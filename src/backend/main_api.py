@@ -1,5 +1,28 @@
+import sys
+from loguru import logger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# --- Logging Configuration ---
+# Remove default handler to avoid duplicate logs
+logger.remove()
+# Add a new handler that logs to stderr
+# Set level to INFO to capture all important operational events
+logger.add(
+    sys.stderr,
+    level="INFO",
+    format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+           "<level>{level: <8}</level> | "
+           "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+    colorize=True,
+)
+# Also add a file sink to ensure logs are captured persistently
+log_file_path = os.path.join(os.path.dirname(__file__), "..", "..", "logs", "backend.log")
+os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+logger.add(log_file_path, rotation="10 MB", level="INFO", format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}")
+
+logger.info("Logging configured successfully to console and file.")
+# --- End Logging Configuration ---
 
 app = FastAPI(
     title="Hybrid RAG System API",
