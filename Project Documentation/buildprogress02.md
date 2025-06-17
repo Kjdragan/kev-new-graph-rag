@@ -143,7 +143,7 @@ The knowledge graph extraction and ingestion pipeline is now fully functional wi
 
 3. **Embedding & Extraction**:
    - Document embeddings are generated using Google's `gemini-embedding-001` model.
-   - LLM extraction is performed using Google's `gemini-2.5-pro-preview-06-05` model.
+   - LLM extraction is performed using Google's `gemini-2.5-pro` model.
    - No OpenAI models or APIs are used anywhere in the pipeline.
 
 4. **Graph Storage**:

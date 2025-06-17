@@ -121,7 +121,7 @@ def setup_models():
     # Set up Gemini Pro model for reasoning
     # Use the model from config
     config = get_config()
-    pro_model = config.get('models', {}).get('pro', 'gemini-2.5-pro-preview-06-05')
+    pro_model = config.get('models', {}).get('pro', 'gemini-2.5-pro')
     
     client = genai.Client() # API key will be picked from GOOGLE_API_KEY env var
     

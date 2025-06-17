@@ -34,7 +34,8 @@ class IngestionOrchestrator:
         logger.info("Initializing IngestionOrchestrator...")
         self.config = config or get_config()
         self.embedding_model = CustomGeminiEmbedding(
-            model_name=self.config.embedding.model_name,
+            model_name=self.config.embedding.embedding_model_name,
+            google_api_key=self.config.embedding.google_api_key,
             output_dimensionality=self.config.embedding.dimensions
         )
         
@@ -53,6 +54,14 @@ class IngestionOrchestrator:
         self.ontology_edges = UniversalRelationships
 
         logger.info("IngestionOrchestrator initialized.")
+
+    async def _initialize_ingesters(self):
+        """Initializes all asynchronous ingester clients."""
+        logger.info("Initializing async ingester clients...")
+        if self.chroma_ingester and not self.chroma_ingester.client:
+            await self.chroma_ingester.async_init()
+        # Can add other async inits here, e.g., for Neo4j if it were async
+        logger.info("Async ingester clients initialized.")
 
     def get_gdrive_pipeline(self) -> IngestionPipeline:
         """
@@ -109,6 +118,7 @@ class IngestionOrchestrator:
         Returns:
             A summary of the ingestion process.
         """
+        await self._initialize_ingesters()
         pipeline = self.get_local_file_pipeline()
         
         # Create a LlamaDocument object to pass into the pipeline context
@@ -143,6 +153,7 @@ class IngestionOrchestrator:
         Returns:
             A summary of the ingestion process.
         """
+        await self._initialize_ingesters()
         pipeline = self.get_gdrive_pipeline()
         initial_context = {"gdrive_folder_id": folder_id}
         
@@ -169,6 +180,7 @@ class IngestionOrchestrator:
         Returns:
             A summary of the ingestion process.
         """
+        await self._initialize_ingesters()
         pipeline = self.get_youtube_pipeline()
         initial_context = {"youtube_url": youtube_url}
         

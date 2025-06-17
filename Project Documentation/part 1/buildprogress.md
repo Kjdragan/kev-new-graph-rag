@@ -107,8 +107,8 @@ of the Graph RAG system, as outlined in `technical_prd.md` and planned in
       Cypher queries.
   - Updated all Gemini model references from outdated `gemini-1.5-flash` to the
     correct models:
-    - `gemini-2.5-pro-preview-06-05` for complex reasoning tasks.
-    - `gemini-2.5-flash-preview-05-20` for faster, general-purpose tasks.
+    - `gemini-2.5-pro` for complex reasoning tasks.
+    - `gemini-2.5-flash` for faster, general-purpose tasks.
   - Implemented a comprehensive configuration management system:
     - Created `config.yaml` as a central source of truth for model IDs and
       settings.

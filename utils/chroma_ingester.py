@@ -1,6 +1,7 @@
 """ChromaDB integration for vector storage in kev-graph-rag."""
 
 import os
+import asyncio
 from typing import Dict, List, Optional, Any, Union, Sequence
 
 import chromadb
@@ -27,10 +28,13 @@ except ImportError:
 
 
 class ChromaIngester:
-    """Handles document ingestion into ChromaDB."""
+    """Handles document ingestion into ChromaDB using an async client."""
 
     def __init__(self, config: ChromaDBConfig, embedding_model: CustomGeminiEmbedding):
         """Initialize the ChromaDB ingester.
+        
+        Note: This only sets up configuration. Call `async_init()` to establish
+        a connection.
         
         Args:
             config: Configuration for ChromaDB connection
@@ -38,150 +42,107 @@ class ChromaIngester:
         """
         self.config = config
         self.embedding_model = embedding_model
-        self.client = self._init_client()
-        self.collection = self._get_or_create_collection()
+        self.client: Optional[chromadb.AsyncClientAPI] = None
+        self.collection: Optional[Collection] = None
 
-    def _init_client(self):
-        """Initialize the ChromaDB client with latest API."""
+    async def async_init(self):
+        """
+        Asynchronously initializes the ChromaDB client and gets/creates the collection.
+        This method is idempotent and can be called multiple times.
+        """
+        if self.collection:
+            return
+
+        logger.info("Initializing ChromaDB async client and collection...")
         try:
-            # Modern auth approach for ChromaDB using Settings
+            # 1. Initialize Client
             if self.config.auth_enabled:
-                # Use Settings for authentication with basic auth provider
                 settings = chromadb.Settings(
                     chroma_client_auth_provider="chromadb.auth.basic_authn.BasicAuthClientProvider",
                     chroma_client_auth_credentials=f"{self.config.username}:{self.config.password}"
                 )
-                
-                return chromadb.HttpClient(
-                    host=self.config.host,
-                    port=self.config.port,
-                    settings=settings
+                self.client = await chromadb.AsyncHttpClient(
+                    host=self.config.host, port=self.config.port, settings=settings
                 )
             else:
-                # No authentication
-                return chromadb.HttpClient(
-                    host=self.config.host,
-                    port=self.config.port
-                )
-        except Exception as e:
-            logger.error(f"Failed to initialize ChromaDB client: {e}")
-            raise
+                self.client = await chromadb.AsyncHttpClient(host=self.config.host, port=self.config.port)
+            
+            logger.info(f"ChromaDB async client created for host {self.config.host}:{self.config.port}")
 
-    def _get_or_create_collection(self) -> Collection:
-        """Get or create the collection for document storage."""
-        try:
-            # Modern collection creation with metadata options
-            return self.client.get_or_create_collection(
+            # 2. Get or Create Collection
+            self.collection = await self.client.get_or_create_collection(
                 name=self.config.collection_name,
                 metadata={
                     "description": "Document collection for kev-graph-rag",
                     "embedding_dimension": str(self.embedding_model._gemini_config.get("output_dimensionality", 1024)),
-                    "similarity": "cosine"  # Using cosine for Gemini embeddings
+                    "similarity": "cosine"
                 },
-                # Create collection with optimized indexing settings
-                embedding_function=None  # We'll handle embeddings manually
+                embedding_function=None
             )
+            logger.success(f"Successfully got or created ChromaDB collection: '{self.config.collection_name}'")
+
         except Exception as e:
-            logger.error(f"Failed to get/create collection: {e}")
+            logger.error(f"Failed during ChromaDB async initialization: {e}", exc_info=True)
+            # Reset state on failure
+            self.client = None
+            self.collection = None
             raise
-            
-    def get_or_create_collection(self) -> Collection:
-        """Public method to get or create the collection for document storage.
-        
-        Returns:
-            The ChromaDB collection for document storage
-        """
-        # Reuse the existing collection if already initialized
-        if hasattr(self, 'collection') and self.collection:
-            return self.collection
-        # Otherwise call the internal method
-        return self._get_or_create_collection()
 
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         retry=retry_if_exception_type((chromadb.errors.ChromaError))
     )
-    def ingest_documents(self, documents: List[Dict[str, Any]]) -> bool:
-        """Ingest documents into ChromaDB.
-        
-        Args:
-            documents: List of document dictionaries with fields:
-                - id: Unique document ID
-                - text: Document text content
-                - metadata: Dictionary of metadata about the document
-                
-        Returns:
-            bool: True if ingestion successful
-        """
+    async def ingest_documents(self, documents: List[Dict[str, Any]]) -> bool:
+        """Asynchronously ingest documents into ChromaDB."""
+        if not self.collection:
+            raise RuntimeError("ChromaIngester not initialized. Call async_init() before using.")
+
         try:
-            # Batch process documents
-            ids = [doc["id"] for doc in documents]
-            texts = [doc["text"] for doc in documents]
-            metadatas = [doc.get("metadata", {}) for doc in documents]
+            texts = [doc['document'] for doc in documents]
+            metadatas = [doc['metadata'] for doc in documents]
+            ids = [doc['id'] for doc in documents]
+
+            embeddings = await self.batch_embed_documents(texts)
             
-            # Generate embeddings using the Gemini model - batched for efficiency
-            embeddings = self.batch_embed_documents(texts)
-            
-            # Using latest upsert semantics and batch processing
-            self.collection.upsert(
-                ids=ids,
+            await self.collection.upsert(
                 documents=texts,
                 embeddings=embeddings,
-                metadatas=metadatas
+                metadatas=metadatas,
+                ids=ids
             )
-            
-            logger.info(f"Successfully ingested {len(documents)} documents into ChromaDB. Sample embedding (truncated): {truncate_embedding(embeddings[0]) if embeddings else 'None'}")
+            logger.info(f"Successfully ingested {len(documents)} documents into ChromaDB")
             return True
-            
         except Exception as e:
             logger.error(f"Failed to ingest documents into ChromaDB: {e}")
             raise
 
-    def batch_embed_documents(self, texts: List[str]) -> List[List[float]]:
-        """Batch embed multiple texts for efficiency.
-        
-        Args:
-            texts: List of text documents to embed
-            
-        Returns:
-            List of embedding vectors
-        """
-        # Process in batches of 10 for API efficiency
+    async def batch_embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Asynchronously batch embed multiple texts for efficiency."""
         batch_size = 10
         all_embeddings = []
         
         for i in range(0, len(texts), batch_size):
             batch_texts = texts[i:i+batch_size]
-            batch_embeddings = [self.embedding_model._get_text_embedding(text) for text in batch_texts]
+            # Use the async embedding method
+            embedding_tasks = [self.embedding_model._aget_text_embedding(text) for text in batch_texts]
+            batch_embeddings = await asyncio.gather(*embedding_tasks)
             all_embeddings.extend(batch_embeddings)
             
-            # Log with truncated embedding representation for readability
-            if batch_embeddings and len(batch_embeddings) > 0:
+            if batch_embeddings:
                 sample_embedding = batch_embeddings[0]
                 logger.debug(f"Batch embedding sample (truncated): {truncate_embedding(sample_embedding)}")
         
         return all_embeddings
-        
-    def add_documents(self, documents: List[str], metadatas: Optional[List[Dict[str, Any]]] = None, ids: Optional[List[str]] = None) -> bool:
-        """Add documents to the collection with separate lists for documents, metadatas, and ids.
-        
-        This is a convenience method that matches the interface expected by the test script.
-        
-        Args:
-            documents: List of document texts
-            metadatas: Optional list of metadata dictionaries
-            ids: Optional list of document IDs (will be auto-generated if not provided)
-            
-        Returns:
-            bool: True if documents were added successfully
-        """
+
+    async def add_documents(self, documents: List[str], metadatas: Optional[List[Dict[str, Any]]] = None, ids: Optional[List[str]] = None) -> bool:
+        """Asynchronously add documents to the collection."""
+        if not self.collection:
+            raise RuntimeError("ChromaIngester not initialized. Call async_init() before using.")
         try:
-            # Generate embeddings for the documents
-            embeddings = self.batch_embed_documents(documents)
+            embeddings = await self.batch_embed_documents(documents)
             
-            # Use collection's upsert method to add documents
-            self.collection.upsert(
+            await self.collection.upsert(
                 documents=documents,
                 metadatas=metadatas,
                 ids=ids,
@@ -190,48 +151,33 @@ class ChromaIngester:
             
             logger.info(f"Successfully added {len(documents)} documents to ChromaDB")
             return True
-            
         except Exception as e:
             logger.error(f"Failed to add documents to ChromaDB: {e}")
             raise
-            
-    def count_documents(self) -> int:
-        """Get the number of documents in the collection.
-        
-        Returns:
-            int: Number of documents in the collection
-        """
+
+    async def count_documents(self) -> int:
+        """Asynchronously get the number of documents in the collection."""
+        if not self.collection:
+            raise RuntimeError("ChromaIngester not initialized. Call async_init() before using.")
         try:
-            # Get collection count using ChromaDB's get_collection API
-            return self.collection.count()
+            return await self.collection.count()
         except Exception as e:
             logger.error(f"Failed to get document count: {e}")
             return 0
-    
-    def search(self, 
-               query: str, 
-               n_results: int = 5, 
-               filters: Optional[Dict[str, Any]] = None,
-               include_embeddings: bool = False) -> QueryResult:
-        """Search documents by vector similarity using modern API.
-        
-        Args:
-            query: The search query
-            n_results: Number of results to return
-            filters: Optional metadata filters using ChromaDB where syntax
-            include_embeddings: Whether to include embeddings in results
+
+    async def search(self, query: str, n_results: int = 5, filters: Optional[Dict[str, Any]] = None, include_embeddings: bool = False) -> QueryResult:
+        """Asynchronously search documents by vector similarity."""
+        if not self.collection:
+            raise RuntimeError("ChromaIngester not initialized. Call async_init() before using.")
             
-        Returns:
-            QueryResult with matching documents, metadata and distances
-        """
-        query_embedding = self.embedding_model._get_text_embedding(query)
+        query_embedding = await self.embedding_model._aget_text_embedding(query)
         logger.debug(f"Search query embedding (truncated): {truncate_embedding(query_embedding)}")
         
         include = ["documents", "metadatas", "distances"]
         if include_embeddings:
             include.append("embeddings")
         
-        results = self.collection.query(
+        results = await self.collection.query(
             query_embeddings=[query_embedding],
             n_results=n_results,
             where=filters,

@@ -26,6 +26,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.gdrive_reader import GDriveReader, GDriveReaderConfig
 from utils.document_parser import DocumentParser, LlamaParseConfig
+from utils.embedding import CustomGeminiEmbedding
 from utils.chroma_ingester import ChromaIngester 
 from utils.neo4j_ingester import Neo4jIngester, DocumentIngestionData
 from neo4j import GraphDatabase
@@ -38,7 +39,7 @@ from utils.config_models import (
     EmbeddingConfig,
     IngestionOrchestratorConfig
 )
-from utils.config import Config
+from utils.config_loader import get_config
 from src.graph_extraction.extractor import GraphExtractor
 from pydantic import BaseModel # For type hinting
 import importlib
@@ -93,68 +94,12 @@ def load_ontology_from_template(template_name: str) -> Tuple[List[Type[BaseModel
 
 
 def setup_config(env_file: Optional[str] = None) -> IngestionOrchestratorConfig:
-    """Load configuration from environment variables and/or config files."""
-    # Load environment variables
-    if env_file:
-        dotenv.load_dotenv(env_file)
-    else:
-        dotenv.load_dotenv()
-    
-    # Load config from YAML via Config singleton
-    config = Config()
-    
-    # Create configuration objects
-    gdrive_config = GDriveReaderConfig(
-        credentials_path=os.getenv("GOOGLE_DRIVE_CREDENTIALS_PATH", ""),
-        folder_id=os.getenv("GOOGLE_DRIVE_FOLDER_ID", ""),
-        impersonated_user_email=os.getenv("GOOGLE_DRIVE_IMPERSONATED_USER_EMAIL", None)
-    )
-    
-    llamaparse_config = LlamaParseConfig(
-        api_key=os.getenv("LLAMA_CLOUD_API_KEY", "")
-    )
-    
-    neo4j_config = Neo4jConfig(
-        uri=os.getenv("NEO4J_URI", ""),
-        user=os.getenv("NEO4J_USER", ""),
-        password=os.getenv("NEO4J_PASSWORD", ""),
-        database=os.getenv("NEO4J_DATABASE", "neo4j"),
-        retry_count=int(os.getenv("NEO4J_RETRY_COUNT", "3")),
-        retry_interval=float(os.getenv("NEO4J_RETRY_INTERVAL", "1.0"))
-    )
-    
-    chroma_config = ChromaDBConfig(
-        host=os.getenv("CHROMA_HOST", "localhost"),
-        port=int(os.getenv("CHROMA_PORT", "8000")),
-        collection_name=os.getenv("CHROMA_COLLECTION_NAME", "documents"),
-        auth_enabled=os.getenv("CHROMA_AUTH_ENABLED", "false").lower() == "true",
-        username=os.getenv("CHROMA_USERNAME", "admin"),
-        password=os.getenv("CHROMA_PASSWORD", "admin123")
-    )
-    
-    # Get embedding configuration from Config singleton
-    # The config.yaml structure uses gemini.embeddings.model_id and gemini.embeddings.output_dimensionality
-    embedding_model_name = config.get("gemini.embeddings.model_id", "gemini-embedding-001")
-    embedding_dimensions = config.get("gemini.embeddings.output_dimensionality", 1536)
-    
-    logger.info(f"Using embedding model: {embedding_model_name} with {embedding_dimensions} dimensions")
-    
-    embedding_config = EmbeddingConfig(
-        model_name=embedding_model_name,
-        dimensions=embedding_dimensions,
-        google_api_key=os.getenv("GOOGLE_API_KEY", "")
-    )
-    
-    # Create orchestrator config
-    orchestrator_config = IngestionOrchestratorConfig(
-        gdrive=gdrive_config,
-        llamaparse=llamaparse_config,
-        neo4j=neo4j_config,
-        chromadb=chroma_config,
-        embedding=embedding_config
-    )
-    
-    return orchestrator_config
+    """Load configuration using the centralized get_config loader."""
+    logger.info("Loading configuration...")
+    # The get_config function handles loading .env, config.yaml, and assembling the config object.
+    config = get_config(env_file=env_file)
+    logger.info("IngestionOrchestratorConfig fully initialized.")
+    return config
 
 async def process_documents(config: IngestionOrchestratorConfig, ontology_nodes: List[Type[BaseModel]], ontology_edges: List[Type[BaseModel]], temp_dir: str = "./temp") -> Dict[str, int]:
     """Process documents from Google Drive to ChromaDB and Neo4j.
@@ -170,15 +115,18 @@ async def process_documents(config: IngestionOrchestratorConfig, ontology_nodes:
     logger.info("Initializing pipeline components...")
     gdrive_reader = GDriveReader(config.gdrive)
     document_parser = DocumentParser(config.llamaparse)
-    chroma_ingester = ChromaIngester(config.chromadb, CustomGeminiEmbedding(
-            model_name=config.embedding.model_name,
-            output_dimensionality=config.embedding.dimensions
-        ))
+    embedding_model = CustomGeminiEmbedding(
+        model_name=config.embedding.embedding_model_name,
+        output_dimensionality=config.embedding.dimensions
+    )
+    chroma_ingester = ChromaIngester(config=config.chromadb, embedding_model=embedding_model)
+    await chroma_ingester.async_init()
     graph_extractor = GraphExtractor(
         neo4j_uri=config.neo4j.uri,
         neo4j_user=config.neo4j.user,
         neo4j_pass=config.neo4j.password,
-        gemini_api_key=os.environ.get("GOOGLE_API_KEY")
+        pro_model_config=config.gemini_suite.pro_model, # Added pro_model_config
+        gemini_api_key=os.environ.get("GOOGLE_API_KEY") # Kept for optional API key usage
     )
     # List files in Google Drive with error handling
     try:
@@ -216,25 +164,21 @@ async def process_documents(config: IngestionOrchestratorConfig, ontology_nodes:
             
             # ChromaDB Ingestion Path
             logger.info(f"Ingesting {file_name} to ChromaDB...")
-            chroma_documents = []
-            
-            # Process each page/chunk from the parsed document
-            for idx, page in enumerate(parsed_document):
-                page_doc = {
-                    "id": f"{file_id}_p{idx}_{uuid.uuid4()}",
-                    "text": page['text'],
+            chroma_documents = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "document": page.text,
                     "metadata": {
-                        "source_file": file_name,
+                        "source": file_name,
+                        "page_number": page.metadata.get('page', -1), # Use .get for safety
                         "file_id": file_id,
-                        "page_number": idx + 1,
-                        "mime_type": mime_type,
-                        "ingested_at": datetime.now().isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat()
                     }
                 }
-                chroma_documents.append(page_doc)
-            
+                for page in parsed_document
+            ]
             # Batch ingest to ChromaDB
-            chroma_ingester.ingest_documents(chroma_documents)
+            await chroma_ingester.ingest_documents(chroma_documents)
             
             # GraphExtractor Path for Neo4j
             logger.info(f"Extracting graph data from {file_name} using template for Neo4j...")

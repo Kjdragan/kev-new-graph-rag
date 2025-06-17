@@ -18,7 +18,7 @@ class GDriveIngestionRequest(BaseModel):
     folder_id: str
 
 class YouTubeIngestionRequest(BaseModel):
-    url: str
+    youtube_url: str  # Changed from 'url' to 'youtube_url' to match frontend
 
 @router.post("/ingest/document")
 async def ingest_document(file: UploadFile = File(...)):
@@ -78,20 +78,20 @@ async def ingest_gdrive_documents(request_data: GDriveIngestionRequest = Body(..
 @router.post("/ingest/youtube")
 async def ingest_youtube_transcript(request_data: YouTubeIngestionRequest = Body(...)):
     """Receives a YouTube URL and ingests its transcript via the orchestrator."""
-    logger.info(f"Received request to ingest from YouTube URL: {request_data.url}")
+    logger.info(f"Received request to ingest from YouTube URL: {request_data.youtube_url}")
     try:
         orchestrator = IngestionOrchestrator()
-        result = await orchestrator.run_youtube_ingestion(youtube_url=request_data.url)
+        result = await orchestrator.run_youtube_ingestion(youtube_url=request_data.youtube_url)
 
         if result.get("errors"):
-            logger.error(f"Ingestion failed for YouTube URL {request_data.url} with errors: {result['errors']}")
+            logger.error(f"Ingestion failed for YouTube URL {request_data.youtube_url} with errors: {result['errors']}")
             raise HTTPException(status_code=500, detail={"message": "Ingestion failed", "errors": result['errors']})
 
         return {
-            "message": f"YouTube transcript ingestion complete for URL {request_data.url}.",
+            "message": f"YouTube transcript ingestion complete for URL {request_data.youtube_url}.",
             "summary": result
         }
 
     except Exception as e:
-        logger.exception(f"An unexpected error occurred during YouTube ingestion for URL {request_data.url}")
+        logger.exception(f"An unexpected error occurred during YouTube ingestion for URL {request_data.youtube_url}")
         raise HTTPException(status_code=500, detail={"message": "An unexpected server error occurred", "error": str(e)})

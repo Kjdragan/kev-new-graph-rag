@@ -193,7 +193,7 @@ class DocumentParser:
             A single string containing all extracted text, joined by newlines.
         """
         parsed_sections = await self.aparse_file(file_path)
-        concatenated_text = "\n\n".join([section['text'] for section in parsed_sections if section.get('text')])
+        concatenated_text = "\n\n".join([section.text for section in parsed_sections if hasattr(section, 'text') and section.text])
         if not concatenated_text and parsed_sections: # Parsed sections exist but no text was extracted
             logger.warning(f"Concatenated text is empty for {Path(file_path).name}, though sections were parsed.")
         elif not parsed_sections:
@@ -210,7 +210,7 @@ class DocumentParser:
             A single string containing all extracted text, joined by newlines.
         """
         parsed_sections = self.parse_file(file_path)
-        concatenated_text = "\n\n".join([section['text'] for section in parsed_sections if section.get('text')])
+        concatenated_text = "\n\n".join([section.text for section in parsed_sections if hasattr(section, 'text') and section.text])
         if not concatenated_text and parsed_sections: # Parsed sections exist but no text was extracted
             logger.warning(f"Concatenated text is empty for {Path(file_path).name}, though sections were parsed.")
         elif not parsed_sections:
@@ -249,8 +249,8 @@ if __name__ == '__main__':
             if parsed_content_list:
                 for i, content_dict in enumerate(parsed_content_list):
                     print(f"--- Parsed Section {i+1} ---")
-                    print(f"Text: {content_dict.get('text')[:200]}...")
-                    print(f"Metadata: {content_dict.get('metadata')}")
+                    print(f"Text: {content_dict.text[:200]}...")
+                    print(f"Metadata: {content_dict.metadata}")
             else:
                 print("No content extracted by LlamaParse.")
         except Exception as e:

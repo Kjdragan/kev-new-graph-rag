@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class GDriveReaderConfig(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix='GDRIVE_', env_file='.env', env_file_encoding='utf-8', extra='ignore')
+    model_config = SettingsConfigDict(env_prefix='GOOGLE_DRIVE_', env_file='.env', env_file_encoding='utf-8', extra='ignore')
     """Configuration for Google Drive integration."""
     credentials_path: str = Field(
         default="c:\\Users\\kevin\\repos\\kev-graph-rag\\credentials\\gdrive_service_account.json",
@@ -31,7 +31,7 @@ class GDriveReaderConfig(BaseSettings):
 
 
 class LlamaParseConfig(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix='LLAMAPARSE_', env_file='.env', env_file_encoding='utf-8', extra='ignore')
+    model_config = SettingsConfigDict(env_prefix='LLAMA_CLOUD_', env_file='.env', env_file_encoding='utf-8', extra='ignore')
     """Configuration for LlamaParse integration."""
     api_key: Optional[str] = Field(
         default=None,
@@ -78,14 +78,36 @@ class Neo4jConfig(BaseSettings):
 class EmbeddingConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix='EMBEDDING_', env_file='.env', env_file_encoding='utf-8', extra='ignore')
     """Configuration for the embedding model."""
-    model_name: str = Field(
-        default="gemini-embedding-exp-03-07", 
-        description="Name of the Gemini embedding model to use"
+    embedding_model_name: str = Field(
+        default="gemini-embedding-001", 
+        description="The name of the embedding model to use (default from config.yaml)."
     )
     dimensions: int = Field(
-        default=1024, 
-        description="Number of dimensions for the embeddings"
+        default=1536, 
+        description="Number of dimensions for the embeddings (default from config.yaml)."
     )
+    google_api_key: str = Field(..., description="Google API Key loaded from .env or GOOGLE_API_KEY")
+    embedding_location: str = Field(
+        default="global",
+        description="The GCP location for the embedding model endpoint. Defaults to 'global' for 'gemini-embedding-001'."
+    )
+
+
+class GeminiModelInstanceConfig(BaseSettings):
+    model_config = SettingsConfigDict(extra='ignore') # Allows other fields from YAML if needed
+    """Configuration for a single Gemini model instance."""
+    model_id: str = Field(..., description="The specific Gemini model ID, e.g., 'gemini-2.5-pro' or 'gemini-2.5-flash'.")
+    # Add other common parameters like temperature, top_p if they are in config.yaml
+    # temperature: Optional[float] = Field(default=None, description="Model temperature.")
+    # top_p: Optional[float] = Field(default=None, description="Model top_p.")
+
+
+class GeminiSuiteConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix='GEMINI_', extra='ignore')
+    """Configuration for the suite of Gemini LLMs used in the project."""
+    pro_model: GeminiModelInstanceConfig = Field(default_factory=GeminiModelInstanceConfig, description="Configuration for the Gemini Pro model (e.g., 'gemini-2.5-pro'), typically used for more complex tasks.")
+    flash_model: GeminiModelInstanceConfig = Field(default_factory=GeminiModelInstanceConfig, description="Configuration for the Gemini Flash model (e.g., 'gemini-2.5-flash'), optimized for speed and efficiency.") # Will be populated from config.yaml
+    # You could add other models here if needed, e.g., a specific vision model
 
 
 # Example of how these might be loaded or used in a main orchestrator config later
@@ -95,4 +117,5 @@ class IngestionOrchestratorConfig(BaseSettings):
     chromadb: ChromaDBConfig = Field(default_factory=ChromaDBConfig)
     neo4j: Neo4jConfig = Field(default_factory=Neo4jConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
+    gemini_suite: GeminiSuiteConfig = Field(default_factory=GeminiSuiteConfig)
     # Add other ingestion settings like target directories if we download files locally first

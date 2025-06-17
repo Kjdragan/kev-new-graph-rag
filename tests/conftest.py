@@ -27,7 +27,7 @@ def mock_config():
     
     # Setup common config getters
     mock_config_obj.get.side_effect = lambda path, default=None: {
-        "gemini.models.pro.model_id": "gemini-2.5-pro-preview-06-05",
+        "gemini.models.pro.model_id": "gemini-2.5-pro",
         "gemini.models.pro.thinking_budget": 1024,
         "gemini.embeddings.model_id": "embedding-001",
         "neo4j.retry.max_retries": 3,
@@ -37,7 +37,7 @@ def mock_config():
     }.get(path, default)
     
     # Setup specific getters
-    mock_config_obj.get_gemini_model_id.return_value = "gemini-2.5-pro-preview-06-05"
+    mock_config_obj.get_gemini_model_id.return_value = "gemini-2.5-pro"
     mock_config_obj.get_gemini_thinking_budget.return_value = 1024
     mock_config_obj.get_gemini_embeddings_model.return_value = "embedding-001"
     

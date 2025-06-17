@@ -9,7 +9,7 @@ from google import genai
 
 from llama_index.core.embeddings import BaseEmbedding
 from loguru import logger # Use Loguru for logging
-from .config import get_config
+from .config_loader import get_config
 
 # Try to import the truncate_embedding function from gemini_embedder if available
 try:
@@ -50,65 +50,90 @@ class CustomGeminiEmbedding(BaseEmbedding):
 
     def __init__(
         self,
-        google_api_key: Optional[str] = None,
         model_name: Optional[str] = None,
         output_dimensionality: Optional[int] = None,
         title: Optional[str] = None,
-        project_id: str = "neo4j-deployment-new1",
         task_type: Optional[str] = None,
     ) -> None:
         """
-        Initialize the Google GenerativeAI embedding model.
+        Initialize the Google GenerativeAI embedding model using Application Default Credentials (ADC).
+
+        This method relies on environment variables for configuration, as per project best practices:
+        - GOOGLE_GENAI_USE_VERTEXAI=True
+        - GOOGLE_CLOUD_PROJECT=<your-gcp-project-id>
+        - GOOGLE_CLOUD_LOCATION=<your-gcp-region>
 
         Args:
-            google_api_key: Google API key, will use GOOGLE_API_KEY from environment if not provided
-            model_name: Google embedding model name
-            task_type: Type of task for the embedding, e.g. "RETRIEVAL_DOCUMENT" or "SEMANTIC_SIMILARITY"
-            output_dimensionality: Desired dimension of embedding output vector (default is model's full dimensionality)
-            title: Optional title to provide context for the embedding
+            model_name: Google embedding model name. Defaults to value from config.yaml.
+            output_dimensionality: Desired dimension of embedding output vector. Defaults to value from config.yaml.
+            title: Optional title to provide context for the embedding.
+            task_type: Type of task for the embedding, e.g., "RETRIEVAL_DOCUMENT".
         """
-        # Initialize Pydantic model first
         super().__init__()
 
-        # Get configuration
         config = get_config()
         
-        # Use config values as defaults if not explicitly provided
         if model_name is None:
             model_name = config.get_gemini_embeddings_model()
             logger.debug(f"Using model_name from config: {model_name}")
-            
+
+        is_vertex_ai = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI") == "True"
+        
+        if is_vertex_ai:
+            logger.info("Using Vertex AI. Model name will be used as-is without 'models/' prefix.")
+            if not os.environ.get("GOOGLE_CLOUD_PROJECT"):
+                raise EnvironmentError(
+                    "When 'GOOGLE_GENAI_USE_VERTEXAI' is 'True', the 'GOOGLE_CLOUD_PROJECT' "
+                    "environment variable must also be set."
+                )
+        else:
+            if model_name and not model_name.startswith("models/"):
+                logger.warning(
+                    f"Model name '{model_name}' does not have 'models/' prefix. "
+                    f"Prepending it for compatibility with Google AI Studio."
+                )
+                model_name = f"models/{model_name}"
+                logger.debug(f"Updated model name to: {model_name}")
+        
         if output_dimensionality is None:
             output_dimensionality = config.get_gemini_embeddings_dimensionality()
             logger.debug(f"Using output_dimensionality from config: {output_dimensionality}")
 
-        if google_api_key is None:
-            google_api_key = os.environ.get("GOOGLE_API_KEY")
-            if google_api_key is None:
-                raise ValueError("No Google API key provided and GOOGLE_API_KEY not found in environment")
-
-        # Set the model_name directly since it's part of BaseEmbedding
         self.model_name = model_name
         
-        # Store Gemini-specific parameters as a separate config object
-        # to avoid Pydantic validation errors
         self._gemini_config = {
             "output_dimensionality": output_dimensionality,
             "title": title,
-            "project_id": project_id,
             "task_type": task_type
         }
-        
-        # Set environment variables for Vertex AI
-        os.environ['GOOGLE_CLOUD_PROJECT'] = self._gemini_config["project_id"]
-        os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
-        os.environ['GOOGLE_GENAI_USE_VERTEXAI'] = 'True'
-        self._google_api_key = google_api_key
-        try:
-            self._client = genai.Client(api_key=self._google_api_key)
-        except Exception as e:
-            logger.error(f"Failed to initialize genai.Client: {e}", exc_info=True)
-            raise
+
+        # Initialize the genai.Client based on whether we're using Vertex AI or not.
+        if is_vertex_ai:
+            embedding_location = config.embedding.embedding_location
+            project_id = config.google.gcp_project_id
+            
+            logger.info(f"Initializing Vertex AI client for project '{project_id}' in location '{embedding_location}'.")
+            try:
+                self._client = genai.Client(
+                    vertexai=True,
+                    project=project_id,
+                    location=embedding_location
+                )
+                logger.info("Successfully initialized genai.Client for Vertex AI.")
+            except Exception as e:
+                logger.error(f"Failed to initialize genai.Client for Vertex AI: {e}", exc_info=True)
+                logger.error(f"Attempted to call genai.Client with vertexai=True, project='{project_id}', location='{embedding_location}'")
+                raise
+        else:
+            # This is the Google AI Studio path (non-Vertex AI).
+            # The client will use the GOOGLE_API_KEY from the environment if available, or ADC.
+            logger.info("Initializing genai.Client for Google AI Studio.")
+            try:
+                self._client = genai.Client()
+                logger.info("Successfully initialized genai.Client for Google AI Studio using ADC/API Key.")
+            except Exception as e:
+                logger.error(f"Failed to initialize genai.Client for Google AI Studio: {e}", exc_info=True)
+                raise
 
     def _get_embedding(
         self, 
@@ -160,9 +185,8 @@ class CustomGeminiEmbedding(BaseEmbedding):
             config_str = str(embed_config_obj)[:100] + "..." if len(str(embed_config_obj)) > 100 else str(embed_config_obj)
             logger.debug(f"Parameters for embed_content: model='{self.model_name}', content='{text[:70]}...', config={config_str}")
             
-            # Create client and get embedding response using the Vertex AI integration
-            client = genai.Client()
-            response = client.models.embed_content(
+            # Use the client initialized in __init__ to get the embedding response
+            response = self._client.models.embed_content(
                 model=self.model_name,
                 contents=text,
                 config=embed_config_obj
@@ -213,12 +237,23 @@ class CustomGeminiEmbedding(BaseEmbedding):
                 raise ValueError(f"Could not extract embedding from response: {response}")
             
 
+        except genai.errors.APIError as e:
+            # Handles errors from the Google API, e.g., NotFoundError, PermissionDeniedError
+            error_log_message = (
+                f"GoogleAPIError during embedding generation for '{text[:50]}...'. "
+                f"Model: {self.model_name}, Type: {type(e).__name__}, Details: {str(e)}"
+            )
+            logger.error(error_log_message, exc_info=True)
+            raise  # Re-raise to ensure failure is propagated
+        
         except Exception as e:
-            logger.error(f"Error during embedding generation for text '{text[:50]}...': {str(e)}", exc_info=True)
-            # Re-raise the exception to allow higher-level error handling if needed,
-            # or return empty list if preferred to allow continuation.
-            # For now, re-raising to make failures more visible during debugging.
-            raise
+            # Handles other unexpected errors (e.g., network, programming errors before API call)
+            error_log_message = (
+                f"Unexpected error during embedding generation for '{text[:50]}...'. "
+                f"Model: {self.model_name}, Type: {type(e).__name__}, Details: {str(e)}"
+            )
+            logger.error(error_log_message, exc_info=True)
+            raise # Re-raise to ensure failure is propagated
 
     def _get_text_embedding(self, text: str) -> List[float]:
         """

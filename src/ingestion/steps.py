@@ -150,17 +150,19 @@ class ExtractGraph(IngestionStep):
         logger.info(f"Starting graph extraction from {len(full_text_content)} characters of text for '{source_name}'.")
 
         try:
-            extraction_results = await self.extractor.extract(
+            extraction_dict = await self.extractor.extract(
                 text_content=full_text_content,
                 ontology_nodes=self.ontology_nodes,
                 ontology_edges=self.ontology_edges,
                 group_id=source_id,
                 episode_name_prefix=source_name[:50]
             )
-            
-            context.set("graph_extraction_data", extraction_results)
-            nodes_count = len(extraction_results.get('nodes', []))
-            edges_count = len(extraction_results.get('edges', []))
+
+            # The result from the extractor is already a dictionary.
+            context.set("graph_extraction_data", extraction_dict)
+
+            nodes_count = len(extraction_dict.get("nodes", []))
+            edges_count = len(extraction_dict.get("edges", []))
             logger.success(f"Graph extraction complete. Found {nodes_count} nodes and {edges_count} edges.")
 
         except Exception as e:

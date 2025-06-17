@@ -6,6 +6,7 @@ import os
 import yaml
 import logging
 from typing import Dict, Any, Optional
+from utils.config_models import GeminiModelInstanceConfig, GeminiSuiteConfig # Added import
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -96,6 +97,26 @@ class Config:
     def get_gemini_embeddings_dimensionality(self) -> int:
         """Get the Gemini embeddings output dimensionality"""
         return self.get("gemini.embeddings.output_dimensionality", 1536)
+
+    def get_gemini_suite_config(self) -> GeminiSuiteConfig:
+        """Get the Gemini LLM suite configuration."""
+        pro_model_data = self.get("gemini.models.pro", {})
+        flash_model_data = self.get("gemini.models.flash", {})
+
+        if not pro_model_data.get("model_id"):
+            logger.warning("Pro model configuration or model_id is missing in config.yaml. Defaults or Pydantic validation will apply.")
+        if not flash_model_data.get("model_id"):
+            logger.warning("Flash model configuration or model_id is missing in config.yaml. Defaults or Pydantic validation will apply.")
+
+        # Pydantic will raise a ValidationError if 'model_id' is missing, as it's required.
+        # We pass the dict directly; Pydantic handles field mapping.
+        pro_model_config = GeminiModelInstanceConfig(**pro_model_data) 
+        flash_model_config = GeminiModelInstanceConfig(**flash_model_data)
+
+        return GeminiSuiteConfig(
+            pro_model=pro_model_config,
+            flash_model=flash_model_config
+        )
 
 # Create a default config instance
 config = Config()

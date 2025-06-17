@@ -17,7 +17,7 @@ with the following key features and configurations:
 3. **Embedding & Extraction**:
    - Document embeddings are generated using Google's `gemini-embedding-001`
      model.
-   - LLM extraction is performed using Google's `gemini-2.5-pro-preview-06-05`
+   - LLM extraction is performed using Google's `gemini-2.5-pro`
      model.
    - No OpenAI models or APIs are used anywhere in the pipeline.
 

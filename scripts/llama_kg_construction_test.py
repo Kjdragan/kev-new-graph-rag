@@ -95,7 +95,7 @@ def setup_llama_index_with_neo4j(env_vars: Dict[str, str]) -> Dict[str, Any]:
     
     # Get model name from config
     config = get_config()
-    gemini_model_id = config.get("models", {}).get("gemini_pro", "gemini-2.5-pro-preview-06-05")
+    gemini_model_id = config.get("models", {}).get("gemini_pro", "gemini-2.5-pro")
     
     # Configure Google GenAI LLM
     llm = GoogleGenAI(

@@ -2,6 +2,7 @@ import sys
 from loguru import logger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 # --- Logging Configuration ---
 # Remove default handler to avoid duplicate logs

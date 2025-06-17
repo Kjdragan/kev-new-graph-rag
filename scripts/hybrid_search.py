@@ -106,7 +106,7 @@ def setup_components(env_vars: Dict[str, str], debug: bool = False) -> Dict[str,
     
     # Get model IDs from config
     config = get_config()
-    gemini_model_id = config.get("models", {}).get("gemini_pro", "gemini-2.5-pro-preview-06-05")
+    gemini_model_id = config.get("models", {}).get("gemini_pro", "gemini-2.5-pro")
     embedding_model_id = config.get("models", {}).get("embedding_model", "embedding-001")
     thinking_budget = config.get("models", {}).get("thinking_budget", 1024)
     

@@ -9,7 +9,7 @@ def clear_neo4j_database():
     """
     print("Starting database clearing process...", flush=True)
 
-    dotenv_path = os.path.join(os.path.dirname(__file__), '..', 'src', '.env')
+    dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
     print(f"Loading .env from: {os.path.abspath(dotenv_path)}", flush=True)
 
     if not os.path.exists(dotenv_path):

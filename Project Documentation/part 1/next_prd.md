@@ -198,7 +198,7 @@ NEO4J_USER = os.getenv("NEO4J_USER", "neo4j") NEO4J_PASSWORD =
 os.getenv("NEO4J_PASSWORD", "o1ocsUT2c2Ye-3B2nkMHwppzYeK6Z3YBIxVM2LwZgk")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") # From previous.env
 
-LLM_MODEL_FOR_GRAPHITTI = os.getenv("LLM_MODEL", "gemini-2.5-pro-preview-06-05")
+LLM_MODEL_FOR_GRAPHITTI = os.getenv("LLM_MODEL", "gemini-2.5-pro")
 EMBED_MODEL_FOR_GRAPHITTI = "embedding-001" # As per graphiti's GeminiEmbedder
 example [1]
 
@@ -304,7 +304,7 @@ postgres_connection_string for LlamaIndex will be constructed as:
 postgresql://postgres:{SUPABASE_DATABASE_PASSWORD}@db.{SUPABASE_PROJECT_ID}.supabase.co:5432/{SUPABASE_DATABASE_NAME}.
 
 Embedding Model: The EMBED_MODEL_LLM variable from .env (Image 1:
-models/gemini-2.5-flash-preview-05-20) will be used via Vertex AI, integrated
+models/gemini-2.5-flash) will be used via Vertex AI, integrated
 with LlamaIndex. The choice of embedding model impacts both graphitti's internal
 semantic search and the Supabase vector store. Consistency in embedding models
 or a clear strategy for handling potentially different embedding spaces is
@@ -384,11 +384,11 @@ Neo4j components: {e}")
    LlamaIndex will facilitate the integration with these models.5.1. Model
    Selection and ConfigurationThe .env file (Image 1) specifies the Gemini
    models to be used: Primary LLM for Generation:
-   LLM_MODEL="gemini-2.5-pro-preview-06-05" (from .env). This model will be used
+   LLM_MODEL="gemini-2.5-pro" (from .env). This model will be used
    for synthesizing answers from retrieved context. Embedding Model:
-   EMBED_MODEL_LLM="models/gemini-2.5-flash-preview-05-20" (from .env). This
+   EMBED_MODEL_LLM="models/gemini-2.5-flash" (from .env). This
    model is designated for creating embeddings. Fallback LLM:
-   FALLBACK_LLM_MODEL="gemini-2.5-flash-preview-05-20" (from .env). This model
+   FALLBACK_LLM_MODEL="gemini-2.5-flash" (from .env). This model
    can be used if the primary generation model is unavailable or for less
    critical generation tasks to optimize cost/latency. The selection of a
    "flash" model for embeddings and fallback generation is a common practice,
@@ -399,24 +399,24 @@ Neo4j components: {e}")
    .env images, not contradicted by new ones). Table 1: Google Gemini Model
    Configurations and Usage PurposeModel Name (from.env)Vertex AI IdentifierKey
    Configuration Parameters Main
-   GenerationLLM_MODELgemini-2.5-pro-preview-06-05temperature: 0.28,
+   GenerationLLM_MODELgemini-2.5-protemperature: 0.28,
    max_output_tokens: 1024 (adjust as
-   needed)EmbeddingEMBED_MODEL_LLMtext-embedding-004 (or compatible Gemini Flash
+   needed)EmbeddingEMBED_MODEL_LLMgemini-embedding-001 (or compatible Gemini Flash
    endpoint)N/A (uses specific embedding API)Fallback
-   GenerationFALLBACK_LLM_MODELgemini-2.5-flash-preview-05-20temperature: 0.3,
+   GenerationFALLBACK_LLM_MODELgemini-2.5-flashtemperature: 0.3,
    max_output_tokens: 512 (adjust as needed)graphitti Internal LLMLLM_MODEL (or
-   specific)gemini-2.5-pro-preview-06-05(Depends on graphitti's internal
+   specific)gemini-2.5-pro(Depends on graphitti's internal
    needs)graphitti EmbedderEMBED_MODEL_LLMembedding-001 (as per graphiti
    example 1) or compatible Gemini Flash endpointN/A A potential discrepancy
-   exists: EMBED_MODEL_LLM is set to models/gemini-2.5-flash-preview-05-20,
+   exists: EMBED_MODEL_LLM is set to models/gemini-2.5-flash,
    which is a generative model identifier. Vertex AI typically uses specific
-   embedding model IDs like text-embedding-004 or multimodalembedding@001.
+   embedding model IDs like gemini-embedding-001 or multimodalembedding@001.
    graphitti-core's GeminiEmbedder 1 uses embedding-001 in its example.
    LlamaIndex's VertexAIEmbedding class expects specific embedding model names
-   (e.g., text-embedding-004).11 This needs to be resolved to ensure consistent
+   (e.g., gemini-embedding-001).11 This needs to be resolved to ensure consistent
    and correct embedding generation across graphitti and LlamaIndex. If
-   gemini-2.5-flash-preview-05-20 cannot directly serve as an embedding model ID
-   for VertexAIEmbedding, then a model like text-embedding-004 should be used
+   gemini-2.5-flash cannot directly serve as an embedding model ID
+   for VertexAIEmbedding, then a model like gemini-embedding-001 should be used
    for LlamaIndex, and graphitti's configuration must be aligned or
    verified.5.2. LlamaIndex Integration with Vertex AI for GeminiLlamaIndex will
    connect to Gemini models on Vertex AI using the llama-index-llms-vertex and
@@ -450,8 +450,8 @@ llama_index.core.settings import Settings
 
 GCP_PROJECT_ID_ENV = os.getenv("GCP_PROJECT_ID", "neo4j-deployment-new1")
 GCP_LOCATION_ENV = os.getenv("GCP_LOCATION", "us-central1") LLM_MODEL_ENV =
-os.getenv("LLM_MODEL", "gemini-2.5-pro-preview-06-05") EMBEDDING_MODEL_ID_VERTEX
-= "text-embedding-004"
+os.getenv("LLM_MODEL", "gemini-2.5-pro") EMBEDDING_MODEL_ID_VERTEX
+= "gemini-embedding-001"
 
 llm_model_kwargs = { "temperature": 0.28, "max_output_tokens": 1024, }
 
@@ -709,7 +709,7 @@ Conceptual Google ADK agent definition: Python# Based on [15]
 
 # name="hybrid_rag_assistant_adk",
 
-# model="gemini-2.5-pro-preview-06-05",
+# model="gemini-2.5-pro",
 
 # instruction="Answer user questions by retrieving and synthesizing information from a knowledge graph and a document vector store.",
 
@@ -977,8 +977,8 @@ server instances with a shared Neo4j database. This pattern, promoting project
 isolation and easier management, is well-suited for translation to GKE
 deployments or multiple Cloud Run services.8.3. Utilizing Other GCP Services
 Vertex AI: This is a core component, used for accessing Google Gemini models for
-generation (gemini-2.5-pro-preview-06-05) and embedding (text-embedding-004 or
-the specified gemini-2.5-flash-preview-05-20 if compatible) as defined in the
+generation (gemini-2.5-pro) and embedding (gemini-embedding-001 or
+the specified gemini-2.5-flash if compatible) as defined in the
 .env and system design. The GCP Project ID for these services is
 neo4j-deployment-new1 (User-provided image). Google Drive API: Used by
 LlamaIndex's GoogleDriveReader to access documents from the specified
@@ -1046,11 +1046,11 @@ turn)neo4j-deployment-new1GCP_LOCATIONGoogle Cloud region/location for Vertex AI
 services.Image 1 (initial prompt) / Image 1 (user's previous
 turn)us-central1EMBED_MODEL_LLMIdentifier for the embedding model (Gemini on
 Vertex AI).Image 1 (initial
-prompt)models/gemini-2.5-flash-preview-05-20FALLBACK_LLM_MODELIdentifier for the
+prompt)models/gemini-2.5-flashFALLBACK_LLM_MODELIdentifier for the
 fallback LLM (Gemini on Vertex AI).Image 1 (initial
-prompt)gemini-2.5-flash-preview-05-20LLM_MODELIdentifier for the primary LLM
+prompt)gemini-2.5-flashLLM_MODELIdentifier for the primary LLM
 (Gemini on Vertex AI).Image 1 (initial
-prompt)gemini-2.5-pro-preview-06-05ANTHROPIC_API_KEYAPI Key for Anthropic models
+prompt)gemini-2.5-proANTHROPIC_API_KEYAPI Key for Anthropic models
 (Optional, if used).Image 1 (initial prompt) / Image 2 (initial
 prompt)sk-ant-api03-...YiwAAPERPLEXITY_API_KEYAPI Key for Perplexity models
 (Optional, if used).Image 1 (initial prompt) / Image 2 (initial

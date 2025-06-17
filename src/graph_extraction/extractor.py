@@ -17,6 +17,7 @@ from graphiti_core.embedder.gemini import GeminiEmbedderConfig # Import Gemini e
 from src.graph_extraction.gemini_embedder import BatchSizeOneGeminiEmbedder
 from pydantic import BaseModel
 from utils.config import get_config
+from utils.config_models import GeminiModelInstanceConfig # Added import
 
 # Setup logger for this module
 logger = logging.getLogger(__name__) # Added
@@ -29,7 +30,12 @@ class GraphExtractor:
     Orchestrates the knowledge graph extraction process using graphiti-core.
     It takes text and an ontology definition, and returns an extracted graph.
     """
-    def __init__(self, neo4j_uri: str, neo4j_user: str, neo4j_pass: str, gemini_api_key: str = None):
+    def __init__(self, 
+                 neo4j_uri: str, 
+                 neo4j_user: str, 
+                 neo4j_pass: str, 
+                 pro_model_config: GeminiModelInstanceConfig, # Changed from gemini_api_key
+                 gemini_api_key: str = None): # gemini_api_key is now optional and might be deprecated if ADC is always used
         """
         Initializes the GraphExtractor.
 
@@ -37,7 +43,8 @@ class GraphExtractor:
             neo4j_uri: URI for the Neo4j instance.
             neo4j_user: Username for Neo4j.
             neo4j_pass: Password for Neo4j.
-            gemini_api_key: API key for Google Gemini.
+            pro_model_config: Configuration for the Gemini Pro model instance.
+            gemini_api_key: API key for Google Gemini (optional, ADC preferred).
         """
         logger.info("Initializing GraphExtractor...") # Added
         self.config = get_config()
@@ -46,7 +53,7 @@ class GraphExtractor:
         # When api_key is None, google-genai will automatically use Application Default Credentials (ADC)
         # that have been set up with 'gcloud auth application-default login'
         llm_config_for_graphiti = LLMConfig(
-            model=self.config.get("gemini.models.pro.model_id", "gemini-2.5-pro-preview-06-05"),
+            model=pro_model_config.model_id, # Use the passed pro_model_config
             api_key=None,  # Setting to None to force ADC usage
             temperature=0.2,  # Lower temperature for more consistent results
             max_tokens=16000   # Ensure sufficient token budget for complex extractions
