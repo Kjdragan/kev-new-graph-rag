@@ -37,7 +37,8 @@ from utils.config_models import (
     ChromaDBConfig, 
     Neo4jConfig, 
     EmbeddingConfig,
-    IngestionOrchestratorConfig
+    IngestionOrchestratorConfig,
+    GeminiModelInstanceConfig
 )
 from utils.config_loader import get_config
 from src.graph_extraction.extractor import GraphExtractor
@@ -101,7 +102,7 @@ def setup_config(env_file: Optional[str] = None) -> IngestionOrchestratorConfig:
     logger.info("IngestionOrchestratorConfig fully initialized.")
     return config
 
-async def process_documents(config: IngestionOrchestratorConfig, ontology_nodes: List[Type[BaseModel]], ontology_edges: List[Type[BaseModel]], temp_dir: str = "./temp") -> Dict[str, int]:
+async def process_documents(config: IngestionOrchestratorConfig, model_config: GeminiModelInstanceConfig, ontology_nodes: List[Type[BaseModel]], ontology_edges: List[Type[BaseModel]], temp_dir: str = "./temp") -> Dict[str, int]:
     """Process documents from Google Drive to ChromaDB and Neo4j.
     
     Returns:
@@ -125,7 +126,7 @@ async def process_documents(config: IngestionOrchestratorConfig, ontology_nodes:
         neo4j_uri=config.neo4j.uri,
         neo4j_user=config.neo4j.user,
         neo4j_pass=config.neo4j.password,
-        pro_model_config=config.gemini_suite.pro_model, # Added pro_model_config
+        pro_model_config=model_config, # Use the model specified via CLI
         gemini_api_key=os.environ.get("GOOGLE_API_KEY") # Kept for optional API key usage
     )
     # List files in Google Drive with error handling
@@ -228,6 +229,7 @@ async def main():
     parser.add_argument("--env-file", type=str, help="Path to .env file")
     parser.add_argument("--temp-dir", type=str, default="./temp", help="Path for temporary files")
     parser.add_argument("--template", type=str, default="universal", help="Name of the ontology template to use (e.g., 'universal', 'generic', 'financial_report').")
+    parser.add_argument("--llm-model", type=str, default="flash", choices=["pro", "flash"], help="The Gemini model to use for graph extraction ('pro' or 'flash').")
     
     args = parser.parse_args()
     
@@ -246,9 +248,17 @@ async def main():
         
         # Load the specified ontology template
         ontology_nodes, ontology_edges = load_ontology_from_template(args.template)
+
+        # Select the appropriate LLM configuration based on the CLI argument
+        if args.llm_model == "pro":
+            model_config = config.gemini_suite.pro_model
+            logger.info(f"Using Gemini Pro model ('{model_config.model_id}') for graph extraction.")
+        else:
+            model_config = config.gemini_suite.flash_model
+            logger.info(f"Using Gemini Flash model ('{model_config.model_id}') for graph extraction.")
         
         # Process documents
-        stats = await process_documents(config, ontology_nodes, ontology_edges, args.temp_dir)
+        stats = await process_documents(config, model_config, ontology_nodes, ontology_edges, args.temp_dir)
         
         # Print final summary
         print(f"\nIngestion Summary:")

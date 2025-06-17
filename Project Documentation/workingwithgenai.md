@@ -215,5 +215,11 @@ troubleshooting steps:
      ```
    - **Key Takeaway**: Do not invent parameters like `client_options` or attempt to manually construct endpoint URLs. Always use the documented keyword arguments (`vertexai`, `project`, `location`) for Vertex AI client configuration. For standard Google AI Studio access (non-Vertex), the client is simply initialized with `genai.Client()`, which will then use Application Default Credentials (ADC) or the `GOOGLE_API_KEY` environment variable.
 
+6. **Correct Source for Vertex AI Project ID**: When using the `google-genai` SDK with Vertex AI and Application Default Credentials (ADC), the GCP Project ID should be sourced directly from the environment.
+   - **Symptom**: `AttributeError: 'IngestionOrchestratorConfig' object has no attribute 'google'`.
+   - **Cause**: This error occurred because the code attempted to access the project ID from a Pydantic configuration object (`config.google.gcp_project_id`), but the ID is not defined there.
+   - **Resolution**: The correct approach is to retrieve the project ID from the `GOOGLE_CLOUD_PROJECT` environment variable (`os.environ.get("GOOGLE_CLOUD_PROJECT")`). The SDK is designed to look for this variable automatically when ADC is used.
+   - **Key Takeaway**: For services using ADC, rely on the standard environment variables (`GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`) that the underlying Google Cloud libraries expect. Avoid duplicating this configuration in application-level config files unless there is a specific reason to override it.
+
 This document should be updated if new SDK versions introduce changes or if
 further best practices are discovered.

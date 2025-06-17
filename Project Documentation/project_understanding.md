@@ -88,7 +88,7 @@ Configuration is managed centrally and loaded into strongly-typed Pydantic model
 The project uses a custom `CustomGeminiEmbedding` class for generating embeddings.
 *   **Rationale:** This custom class provides better integration with the project's architecture than the default `GeminiEmbedder` from Graphiti.
 *   **Key Features:**
-    *   **Vertex AI ADC Integration:** Natively supports authentication via Application Default Credentials.
+    *   **Vertex AI ADC Integration:** Natively supports authentication via Application Default Credentials. It correctly initializes the `genai.Client` for Vertex AI by sourcing the `GOOGLE_CLOUD_PROJECT` ID directly from the environment, rather than from a configuration file.
     *   **LlamaIndex Compatibility:** Inherits from `llama_index.core.embeddings.BaseEmbedding`.
     *   **Optimized Parameters:** Passes `task_type` and `title` to the Gemini API for higher-quality embeddings.
     *   **Robust Error Handling:** Includes hardened exception logging to provide clear, detailed error messages from the Google GenAI API.

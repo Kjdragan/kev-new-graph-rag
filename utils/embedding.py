@@ -110,7 +110,7 @@ class CustomGeminiEmbedding(BaseEmbedding):
         # Initialize the genai.Client based on whether we're using Vertex AI or not.
         if is_vertex_ai:
             embedding_location = config.embedding.embedding_location
-            project_id = config.google.gcp_project_id
+            project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
             
             logger.info(f"Initializing Vertex AI client for project '{project_id}' in location '{embedding_location}'.")
             try:

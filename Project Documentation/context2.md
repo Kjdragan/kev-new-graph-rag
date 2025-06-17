@@ -44,3 +44,13 @@ This document tracks the major development milestones, architectural decisions, 
 **Summary:** The modular ingestion pipeline was extended to support fetching and processing YouTube transcripts.
 *   **Components:** A `GetYoutubeTranscript` step was added to `src/ingestion/steps.py`, and a corresponding endpoint was added to the `ingest` router.
 *   **Current State:** The feature is implemented but currently undergoing debugging to resolve runtime errors in the ingestion pipeline.
+
+### 6. Gemini Embedding Client Initialization
+**Status:** Complete
+
+**Summary:** A series of critical errors preventing the successful generation of embeddings via Vertex AI were identified and resolved. This was a multi-step debugging process.
+*   **Problem 1: `TypeError` on Client Initialization:** The `genai.Client` was being initialized with an unsupported `client_options` dictionary, causing a `TypeError`.
+    *   **Fix:** The initialization was corrected to use the documented keyword arguments: `genai.Client(vertexai=True, project=project_id, location=location)`. This lesson was documented in `workingwithgenai.md`.
+*   **Problem 2: `AttributeError` on Project ID Retrieval:** After fixing the `TypeError`, a subsequent `AttributeError: 'IngestionOrchestratorConfig' object has no attribute 'google'` occurred.
+    *   **Fix:** The code was incorrectly trying to access the GCP Project ID from the Pydantic configuration object. The fix was to retrieve the project ID directly from the `GOOGLE_CLOUD_PROJECT` environment variable, which is the standard practice when using Application Default Credentials (ADC) with the `google-genai` SDK.
+*   **Current State:** The `CustomGeminiEmbedding` class in `utils/embedding.py` now correctly initializes the Vertex AI client. The ingestion pipeline is ready for a full validation run.

@@ -30,10 +30,10 @@ class GraphExtractor:
     Orchestrates the knowledge graph extraction process using graphiti-core.
     It takes text and an ontology definition, and returns an extracted graph.
     """
-    def __init__(self, 
-                 neo4j_uri: str, 
-                 neo4j_user: str, 
-                 neo4j_pass: str, 
+    def __init__(self,
+                 neo4j_uri: str,
+                 neo4j_user: str,
+                 neo4j_pass: str,
                  pro_model_config: GeminiModelInstanceConfig, # Changed from gemini_api_key
                  gemini_api_key: str = None): # gemini_api_key is now optional and might be deprecated if ADC is always used
         """
@@ -56,7 +56,7 @@ class GraphExtractor:
             model=pro_model_config.model_id, # Use the passed pro_model_config
             api_key=None,  # Setting to None to force ADC usage
             temperature=0.2,  # Lower temperature for more consistent results
-            max_tokens=16000   # Ensure sufficient token budget for complex extractions
+            max_tokens=32768   # Set a very large token budget to avoid JSON truncation errors from the LLM.
         )
 
         # Create a GeminiClient that will use ADC authentication
@@ -134,16 +134,16 @@ class GraphExtractor:
         # This is required for the version of graphiti-core being used
         combined_ontology = ontology_nodes + ontology_edges
         entity_types_dict = {model.__name__: model for model in combined_ontology}
-        
+
         logger.debug(f"Ontology types for extraction: {list(entity_types_dict.keys())}")
 
         episode_name = f"{episode_name_prefix}_{uuid.uuid4()}"
         episode_source_description = "Document processed for KG extraction via GraphExtractor"
-        
+
         last_error = None
         try:
             logger.info(f"Calling graphiti_instance.add_episode for episode: {episode_name}")
-            
+
             # Store ontology info on self for potential debugging or extension
             self.ontology_entity_types = ontology_nodes
             self.ontology_edge_types = ontology_edges

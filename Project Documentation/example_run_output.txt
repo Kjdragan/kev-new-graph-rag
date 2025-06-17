@@ -1,0 +1,504 @@
+PS C:\Users\kevin\repos\kev-new-graph-rag> uv run python scripts/ingest_gdrive_documents.py
+2025-06-17 14:20:26 | INFO     | Loading configuration...
+2025-06-17 14:20:26 | INFO     | IngestionOrchestratorConfig fully initialized.
+2025-06-17 14:20:26 | INFO     | Successfully loaded ontology module for template: 'universal' (module: src.ontology_templates.universal_ontology)
+2025-06-17 14:20:26 | INFO     | Found 9 node types and 10 relationship types.
+2025-06-17 14:20:26 | INFO     | Initializing pipeline components...
+2025-06-17 14:20:26 | INFO     | Using Vertex AI. Model name will be used as-is without 'models/' prefix.
+2025-06-17 14:20:26 | INFO     | Initializing Vertex AI client for project 'neo4j-deployment-new1' in location 'global'.
+2025-06-17 14:20:27 | INFO     | Successfully initialized genai.Client for Vertex AI.
+2025-06-17 14:20:27 | INFO     | Initializing ChromaDB async client and collection...
+2025-06-17 14:20:27 | INFO     | ChromaDB async client created for host localhost:8000
+2025-06-17 14:20:27 | SUCCESS  | Successfully got or created ChromaDB collection: 'documents'
+2025-06-17 14:20:27 | INFO     | Initializing GraphExtractor...
+2025-06-17 14:20:28 | INFO     | Graphiti GeminiClient initialized with model: gemini-2.5-pro
+2025-06-17 14:20:30 | INFO     | BatchSizeOneGeminiEmbedder initialized with model: gemini-embedding-001, dimensions: 1536
+2025-06-17 14:20:30 | INFO     | Graphiti instance initialized for Neo4j URI: neo4j+s://0cf5674a.databases.neo4j.io
+2025-06-17 14:20:30 | INFO     | Listing files from Google Drive folder 1vbj-5VnV_gtIegoW0bOA26gR7rwJDajm...
+2025-06-17 14:20:30 | INFO     | Authenticating to Google Drive using C:\Users\kevin\repos\kev-new-graph-rag\src\service_account_key.json
+2025-06-17 14:20:30 | INFO     | Impersonating user: kevin@clearspringcg.com
+2025-06-17 14:20:30 | INFO     | Successfully built Google Drive service.
+2025-06-17 14:20:32 | INFO     | Found 3 files in Drive folder 1vbj-5VnV_gtIegoW0bOA26gR7rwJDajm matching query.
+2025-06-17 14:20:32 | INFO     | Found 3 files in Google Drive folder
+2025-06-17 14:20:32 | INFO     | Processing file: youtube_education_ecosystem.txt (1soKy0pukkrvetGS7ajnvMVPywLUrikY7) of type text/plain
+2025-06-17 14:20:32 | INFO     | Downloading Drive file_id '1soKy0pukkrvetGS7ajnvMVPywLUrikY7' to 'C:\Users\kevin\repos\kev-new-graph-rag\temp\1soKy0pukkrvetGS7ajnvMVPywLUrikY7_youtube_education_ecosystem.txt'
+2025-06-17 14:20:33 | INFO     | Successfully downloaded file_id '1soKy0pukkrvetGS7ajnvMVPywLUrikY7' to 'C:\Users\kevin\repos\kev-new-graph-rag\temp\1soKy0pukkrvetGS7ajnvMVPywLUrikY7_youtube_education_ecosystem.txt'
+2025-06-17 14:20:33 | INFO     | Parsing youtube_education_ecosystem.txt with LlamaParse using async method...
+2025-06-17 14:20:33 | INFO     | Async parsing document file: 1soKy0pukkrvetGS7ajnvMVPywLUrikY7_youtube_education_ecosystem.txt with LlamaParse
+Started parsing the file under job_id 8d9933ef-4548-417b-bf87-01eac412f4c3
+2025-06-17 14:20:40 | INFO     | Successfully async parsed 5 pages from 1soKy0pukkrvetGS7ajnvMVPywLUrikY7_youtube_education_ecosystem.txt.
+2025-06-17 14:20:40 | INFO     | Ingesting youtube_education_ecosystem.txt to ChromaDB...
+2025-06-17 14:20:40 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '# The YouTube Educational Technology Ecosystem: From Content Creation ...'
+2025-06-17 14:20:42 | INFO     | Successfully received embedding. Truncated representation: [-0.006685570348054171, 0.005769811104983091, 0.008056140504777431, -0.07011524587869644, 0.00251857...
+2025-06-17 14:20:42 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '- Beneficiary creators: 100+ educational channels globally
+- Technolog...'
+2025-06-17 14:20:43 | INFO     | Successfully received embedding. Truncated representation: [-0.008972219191491604, 0.015001709572970867, 0.00667561125010252, -0.07060444355010986, 0.019376439...
+2025-06-17 14:20:43 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '- **Corporate spon 5 pages from 1soKy0pukkrvetGS7ajnvMVPywLUrikY7_youtube_education_ecosystem.txt.
+2025-06-17 14:20:48 | INFO     | Starting graph extraction for group_id: 1soKy0pukkrvetGS7ajnvMVPywLUrikY7 with prefix: youtube_education_ecosystem.txt
+2025-06-17 14:20:48 | INFO     | Calling graphiti_instance.add_episode for episode: youtube_education_ecosystem.txt_d1add7dd-967d-4167-9ada-430daac691d4
+2025-06-17 14:20:48 | INFO     | Calling add_episode with combined entity_types: ['Person', 'Organization', 'Location', 'Event', 'Technology',
+'Content', 'Topic', 'Resource', 'Agreement', 'Participates', 'Located', 'Creates', 'Uses', 'Supports', 'Opposes', 'Discusses', 'Controls', 'Collaborates', 'Influences']
+Error in generating LLM response: Failed to parse structured response: Unterminated string starting at: line 1 column 7501 (char 7500)
+2025-06-17 14:23:48 | ERROR    | Error during graphiti add_episode for episode youtube_education_ecosystem.txt_d1add7dd-967d-4167-9ada-430daac691d4: Failed to parse structured response: Unterminated string starting at: line 1 column 7501 (char 7500)
+2025-06-17 14:23:48 | ERROR    | Stack trace:
+2025-06-17 14:23:48 | ERROR    | Unexpected error path in extract method for episode youtube_education_ecosystem.txt_d1add7dd-967d-4167-9ada-430daac691d4: Failed to parse structured response: Unterminated string starting at: line 1 column 7501 (char 7500)
+2025-06-17 14:23:48 | ERROR    | Stack trace:
+2025-06-17 14:23:48 | ERROR    | Error processing youtube_education_ecosystem.txt: Failed to parse structured response: Unterminated string starting at: line 1 column 7501 (char 7500)
+2025-06-17 14:23:48 | ERROR    | Exception details:
+Traceback (most recent call last):
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\llm_client\gemini_client.py", line 152, in _generate_response
+    validated_model = response_model.model_validate(json.loads(response.text))
+                      │              │              │    │     │        └ <property object at 0x00000242CD8E6480>
+                      │              │              │    │     └ GenerateContentResponse(candidates=[Candidate(content=Content(parts=[Part(video_metadata=None, thought=None, inline_data=None...
+                      │              │              │    └ <function loads at 0x00000242B8C62B60>
+                      │              │              └ <module 'json' from 'C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13.0-windows-x86_64-none\\Lib\\json\\__init__....
+                      │              └ <classmethod(<function BaseModel.model_validate at 0x00000242BA0418A0>)>
+                      └ <class 'graphiti_core.prompts.extract_edges.ExtractedEdges'>
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\json\__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           │                │      └ '{"edges": [{"relation_type": "CREATED_BY", "source_entity_id": 1, "target_entity_id": 2, "fact": "Khan Academy (Salman Khan)...
+           │                └ <function JSONDecoder.decode at 0x00000242B8C623E0>
+           └ <json.decoder.JSONDecoder object at 0x00000242B8BE2270>
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\json\decoder.py", line 344, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               │    │          │      │  └ '{"edges": [{"relation_type": "CREATED_BY", "source_entity_id": 1, "target_entity_id": 2, "fact": "Khan Academy (Salman Khan)...
+               │    │          │      └ <built-in method match of re.Pattern object at 0x00000242B8C529B0>
+               │    │          └ '{"edges": [{"relation_type": "CREATED_BY", "source_entity_id": 1, "target_entity_id": 2, "fact": "Khan Academy (Salman Khan)...
+               │    └ <function JSONDecoder.raw_decode at 0x00000242B8C62480>
+               └ <json.decoder.JSONDecoder object at 0x00000242B8BE2270>
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\json\decoder.py", line 360, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               │    │         │  └ 0
+               │    │         └ '{"edges": [{"relation_type": "CREATED_BY", "source_entity_id": 1, "target_entity_id": 2, "fact": "Khan Academy (Salman Khan)...
+               │    └ <_json.Scanner object at 0x00000242B8C5BC90>
+               └ <json.decoder.JSONDecoder object at 0x00000242B8BE2270>
+
+json.decoder.JSONDecodeError: Unterminated string starting at: line 1 column 7501 (char 7500)
+
+
+The above exception was the direct cause of the following exception:
+
+
+Traceback (most recent call last):
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\scripts\ingest_gdrive_documents.py", line 269, in <module>
+    asyncio.run(main())
+    │       │   └ <function main at 0x00000242D38D0180>
+    │       └ <function _patch_asyncio.<locals>.run at 0x00000242B64714E0>
+    └ <module 'asyncio' from 'C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13.0-windows-x86_64-none\\Lib\\asyncio\\__i...
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\nest_asyncio.py", line 30, in run
+    return loop.run_until_complete(task)
+           │    │                  └ <Task pending name='Task-1' coro=<main() running at C:\Users\kevin\repos\kev-new-graph-rag\scripts\ingest_gdrive_documents.py...
+           │    └ <function _patch_loop.<locals>.run_until_complete at 0x00000242B8AB9080>
+           └ <ProactorEventLoop running=True closed=False debug=False>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\nest_asyncio.py", line 92, in run_until_complete
+    self._run_once()
+    │    └ <function _patch_loop.<locals>._run_once at 0x00000242B8AB9120>
+    └ <ProactorEventLoop running=True closed=False debug=False>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\nest_asyncio.py", line 133, in _run_once
+    handle._run()
+    │      └ <function Handle._run at 0x00000242B893C860>
+    └ <Handle Task.__wakeup()>
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    │    │            │    │           │    └ <member '_args' of 'Handle' objects>
+    │    │            │    │           └ <Handle Task.__wakeup()>
+    │    │            │    └ <member '_callback' of 'Handle' objects>
+    │    │            └ <Handle Task.__wakeup()>
+    │    └ <member '_context' of 'Handle' objects>
+    └ <Handle Task.__wakeup()>
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\asyncio\tasks.py", line 378, in __wakeup
+    self.__step(exc)
+    │           └ Exception('Failed to parse structured response: Unterminated string starting at: line 1 column 7501 (char 7500)')
+    └ <Task pending name='Task-1' coro=<main() running at C:\Users\kevin\repos\kev-new-graph-rag\scripts\ingest_gdrive_documents.py...
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\asyncio\tasks.py", line 293, in __step
+    self.__step_run_and_handle_result(exc)
+    │                                 └ Exception('Failed to parse structured response: Unterminated string starting at: line 1 column 7501 (char 7500)')
+    └ <Task pending name='Task-1' coro=<main() running at C:\Users\kevin\repos\kev-new-graph-rag\scripts\ingest_gdrive_documents.py...
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\asyncio\tasks.py", line 306, in __step_run_and_handle_result
+    result = coro.throw(exc)
+             │    │     └ Exception('Failed to parse structured response: Unterminated string starting at: line 1 column 7501 (char 7500)')
+             │    └ <method 'throw' of 'coroutine' objects>
+             └ <coroutine object main at 0x00000242D389D8B0>
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\scripts\ingest_gdrive_documents.py", line 251, in main
+    stats = await process_documents(config, ontology_nodes, ontology_edges, args.temp_dir)
+                  │                 │       │               │               │    └ './temp'
+                  │                 │       │               │               └ Namespace(env_file=None, temp_dir='./temp', template='universal')                  │                 │       │               └ [<class 'src.ontology_templates.universal_ontology.Participates'>, <class 'src.ontology_templates.universal_ontology.Located'...
+                  │                 │       └ [<class 'src.ontology_templates.universal_ontology.Person'>, <class 'src.ontology_templates.universal_ontology.Organization'>...
+                  │                 └ IngestionOrchestratorConfig(gdrive=GDriveReaderConfig(credentials_path='C:\\Users\\kevin\\repos\\kev-new-graph-rag\\src\\serv...
+                  └ <function process_documents at 0x00000242D38D00E0>
+
+> File "C:\Users\kevin\repos\kev-new-graph-rag\scripts\ingest_gdrive_documents.py", line 187, in process_documents
+    extraction_results = await graph_extractor.extract(
+                               │               └ <function GraphExtractor.extract at 0x00000242D38C1EE0>
+                               └ <src.graph_extraction.extractor.GraphExtractor object at 0x00000242D3A2BA10>
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\src\graph_extraction\extractor.py", line 195, in extract
+    raise last_error  # Re-raise the last exception after logging
+          └ Exception('Failed to parse structured response: Unterminated string starting at: line 1 column 7501 (char 7500)')
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\src\graph_extraction\extractor.py", line 160, in extract
+    add_episode_result = await self.graphiti_instance.add_episode(
+                               │    │                 └ <function Graphiti.add_episode at 0x00000242D2120A40>
+                               │    └ <graphiti_core.graphiti.Graphiti object at 0x00000242D3A2B4D0>
+                               └ <src.graph_extraction.extractor.GraphExtractor object at 0x00000242D3A2BA10>
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\graphiti.py", line 434, in add_episode
+    raise e
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\graphiti.py", line 378, in add_episode
+    (nodes, uuid_map), extracted_edges = await semaphore_gather(
+                                               └ <function semaphore_gather at 0x00000242D1F954E0>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\helpers.py", line 105, in semaphore_gather
+    return await asyncio.gather(*(_wrap_coroutine(coroutine) for coroutine in coroutines))
+                 │       │        │                                           └ (<coroutine object resolve_extracted_nodes at 0x00000242D434C230>, <coroutine object extract_edges at 0x00000242CF2F59E0>)
+                 │       │        └ <function semaphore_gather.<locals>._wrap_coroutine at 0x00000242D4375940>
+                 │       └ <function gather at 0x00000242B89F80E0>
+                 └ <module 'asyncio' from 'C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13.0-windows-x86_64-none\\Lib\\asyncio\\__i...
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\asyncio\tasks.py", line 375, in __wakeup
+    future.result()
+    │      └ <method 'result' of '_asyncio.Future' objects>
+    └ <_GatheringFuture finished exception=Exception('Failed to parse structured response: Unterminated string starting at: line 1 ...
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\asyncio\tasks.py", line 304, in __step_run_and_handle_result
+    result = coro.send(None)
+             │    └ <method 'send' of 'coroutine' objects>
+             └ <coroutine object semaphore_gather.<locals>._wrap_coroutine at 0x00000242D3ABB3D0>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\helpers.py", line 103, in _wrap_coroutine
+    return await coroutine
+                 └ <coroutine object extract_edges at 0x00000242CF2F59E0>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\utils\maintenance\edge_operations.py", line 120, in extract_edges
+    llm_response = await llm_client.generate_response(
+                         │          └ <function GeminiClient.generate_response at 0x00000242D38C1D00>
+                         └ <graphiti_core.llm_client.gemini_client.GeminiClient object at 0x00000242D3A2B770>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\llm_client\gemini_client.py", line 192, in generate_response
+    return await self._generate_response(
+                 │    └ <function GeminiClient._generate_response at 0x00000242D38C1C60>
+                 └ <graphiti_core.llm_client.gemini_client.GeminiClient object at 0x00000242D3A2B770>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\llm_client\gemini_client.py", line 157, in _generate_response
+    raise Exception(f'Failed to parse structured response: {e}') from e
+
+Exception: Failed to parse structured response: Unterminated string starting at: line 1 column 7501 (char 7500)
+2025-06-17 14:23:49 | INFO     | Processing file: geopolitical_analysis_sample.txt (134906XprWVI4vzouBltAfIm1gGir9KyC) of type text/plain
+2025-06-17 14:23:49 | INFO     | Downloading Drive file_id '134906XprWVI4vzouBltAfIm1gGir9KyC' to 'C:\Users\kevin\repos\kev-new-graph-rag\temp\134906XprWVI4vzouBltAfIm1gGir9KyC_geopolitical_analysis_sample.txt'
+2025-06-17 14:23:50 | INFO     | Successfully downloaded file_id '134906XprWVI4vzouBltAfIm1gGir9KyC' to 'C:\Users\kevin\repos\kev-new-graph-rag\temp\134906XprWVI4vzouBltAfIm1gGir9KyC_geopolitical_analysis_sample.txt'
+2025-06-17 14:23:50 | INFO     | Parsing geopolitical_analysis_sample.txt with LlamaParse using async method...
+2025-06-17 14:23:50 | INFO     | Async parsing document file: 134906XprWVI4vzouBltAfIm1gGir9KyC_geopolitical_analysis_sample.txt with LlamaParse
+Started parsing the file under job_id e5633e54-4c1f-4021-8c9d-aca5216b237c
+2025-06-17 14:24:17 | INFO     | Successfully async parsed 4 pages from 134906XprWVI4vzouBltAfIm1gGir9KyC_geopolitical_analysis_sample.txt.
+2025-06-17 14:24:17 | INFO     | Ingesting geopolitical_analysis_sample.txt to ChromaDB...
+2025-06-17 14:24:17 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '# Middle East Conflict Analysis: Regional Dynamics and International
+I...'
+2025-06-17 14:24:17 | INFO     | Successfully received embedding. Truncated representation: [-0.009983444586396217, 0.004035430960357189, -0.009608966298401356, -0.07247331738471985, 0.0016910...
+2025-06-17 14:24:17 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '- **Jericho  III**: Intercontinental ballistic missile
+- **Dolphin-cla...'
+2025-06-17 14:24:17 | INFO     | Successfully received embedding. Truncated representation: [-0.015937304124236107, 0.018148967996239662, -0.0020268314983695745, -0.06028837338089943, -0.00652...
+2025-06-17 14:24:17 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '- Signed September 15, 2020
+- Parties: Israel, UAE, Bahrain, Morocco, ...'
+2025-06-17 14:24:18 | INFO     | Successfully received embedding. Truncated representation: [0.0003106094663962722, 0.013051639311015606, 0.0052025-06-17 14:24:17 | INFO     | Successfully received embedding. Truncated representation: [-0.015937304124236107, 0.018148967996239662, -0.0020268314983695745, -0.06028837338089943, -0.00652...
+2025-06-17 14:24:17 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '- Signed September 15, 2020
+- Parties: Israel, UAE, Bahrain, Morocco, ...'
+2025-06-17 14:24:18 | INFO     | Successfully received embedding. Truncated representation: [0.0003106094663962722, 0.013051639311015606, 0.005012243054807186, -0.06530614197254181, -0.0196326...
+2025-06-17 14:24:18 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '**International Committee
+20268314983695745, -0.06028837338089943, -0.00652...
+2025-06-17 14:24:17 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '- Signed September 15, 2020
+- Parties: Israel, UAE, Bahrain, Morocco, ...'
+2025-06-17 14:24:18 | INFO     | Successfully received embedding. Truncated representation: [0.0003106094663962722, 0.013051639311015606, 0.005012243054807186, -0.06530614197254181, -0.0196326...
+2025-06-17 14:24:18 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '**International Committee
+2025-06-17 14:24:17 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '- Signed September 15, 2020
+- Parties: Israel, UAE, Bahrain, Morocco, ...'
+2025-06-17 14:24:18 | INFO     | Successfully received embedding. Truncated representation: [0.0003106094663962722, 0.013051639311015606, 0.005012243054807186, -0.06530614197254181, -0.0196326...
+2025-06-17 14:24:18 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '**International Committee
+0
+- Parties: Israel, UAE, Bahrain, Morocco, ...'
+2025-06-17 14:24:18 | INFO     | Successfully received embedding. Truncated representation: [0.0003106094663962722, 0.013051639311015606, 0.005012243054807186, -0.06530614197254181, -0.0196326...
+2025-06-17 14:24:18 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '**International Committee
+- Parties: Israel, UAE, Bahrain, Morocco, ...'
+2025-06-17 14:24:18 | INFO     | Successfully received embedding. Truncated representation: [0.0003106094663962722, 0.013051639311015606, 0.005012243054807186, -0.06530614197254181, -0.0196326...
+2025-06-17 14:24:18 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '**International Committee
+of the Red Cross (ICRC):**
+- Operations in G...'
+2025-06-17 14:24:18 | INFO     | Successfully received embedding. Truncated representation: [-0.0006662631640210748, 0.011531619355082512, -0.007657795678824186, -0.06887872517108917, -0.00793...
+2025-06-17 14:24:19 | INFO     | Successfully ingested 4 documents into ChromaDB
+2025-06-17 14:24:19 | INFO     | Extracting graph data from geopolitical_analysis_sample.txt using template for Neo4j...
+2025-06-17 14:24:19 | INFO     | Async parsing document file: 134906XprWVI4vzouBltAfIm1gGir9KyC_geopolitical_analysis_sample.txt with LlamaPars012243054807186, -0.06530614197254181, -0.0196326...
+2025-06-17 14:24:18 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '**International Committee
+of the Red Cross (ICRC):**
+- Operations in G...'
+2025-06-17 14:24:18 | INFO     | Successfully received embedding. Truncated representation: [-0.0006662631640210748, 0.011531619355082512, -0.007657795678824186, -0.06887872517108917, -0.00793...
+2025-06-17 14:24:19 | INFO     | Successfully ingested 4 documents into ChromaDB
+2025-06-17 14:24:19 | INFO     | Extracting graph data from geopolitical_analysis_sample.txt using template for Neo4j...
+2025-06-17 14:24:19 | INFO     | Async parsing document file: 134906XprWVI4vzouBltAfIm1gGir9KyC_geopolitical_analysis_sample.txt with LlamaParsof the Red Cross (ICRC):**
+- Operations in G...'
+2025-06-17 14:24:18 | INFO     | Successfully received embedding. Truncated representation: [-0.0006662631640210748, 0.011531619355082512, -0.007657795678824186, -0.06887872517108917, -0.00793...
+2025-06-17 14:24:19 | INFO     | Successfully ingested 4 documents into ChromaDB
+2025-06-17 14:24:19 | INFO     | Extracting graph data from geopolitical_analysis_sample.txt using template for Neo4j...
+2025-06-17 14:24:19 | INFO     | Async parsing document file: 134906XprWVI4vzouBltAfIm1gGir9KyC_geopolitical_analysis_sample.txt with LlamaParse
+Started parsing the file under job_id 59b53f1a-4585-4e0a-beb3-4c81fab53f24
+2025-06-17 14:24:23 | INFO     | Successfully async parsed 4 pages from 134906XprWVI4vzouBltAfIm1gGir9KyC_geopolitical_analysis_sample.txt.
+2025-06-17 14:24:23 | INFO     | Starting graph extraction for group_id: 134906XprWVI4vzouBltAfIm1gGir9KyC with prefix: geopolitical_analysis_sample.txt
+2025-06-17 14:24:23 | INFO     | Calling graphiti_instance.add_episode for episode: geopolitical_analysis_sample.txt_525a1d7c-84b7-42d8-bcc1-5c5c47bcca5f
+2025-06-17 14:24:23 | INFO     | Calling add_episode with combined entity_types: ['Person', 'Organization', 'Location', 'Event', 'Technology',
+'Content', 'Topic', 'Resource', 'Agreement', 'Participates', 'Located', 'Creates', 'Uses', 'Supports', 'Opposes', 'Discusses', 'Controls', 'Collaborates', 'Influences']
+Error in generating LLM response: Failed to parse structured response: Unterminated string starting at: line 1 column 7402 (char 7401)
+2025-06-17 14:27:16 | ERROR    | Error during graphiti add_episode for episode geopolitical_analysis_sample.txt_525a1d7c-84b7-42d8-bcc1-5c5c47bcca5f: Failed to parse structured response: Unterminated string starting at: line 1 column 7402 (char 7401)
+2025-06-17 14:27:16 | ERROR    | Stack trace:
+2025-06-17 14:27:16 | ERROR    | Unexpected error path in extract method for episode geopolitical_analysis_sample.txt_525a1d7c-84b7-42d8-bcc1-5c5c47bcca5f: Failed to parse structured response: Unterminated string starting at: line 1 column 7402 (char 7401)
+2025-06-17 14:27:16 | ERROR    | Stack trace:
+2025-06-17 14:27:16 | ERROR    | Error processing geopolitical_analysis_sample.txt: Failed to parse structured response: Unterminated string starting at: line 1 column 7402 (char 7401)
+2025-06-17 14:27:16 | ERROR    | Exception details:
+Traceback (most recent call last):
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\llm_client\gemini_client.py", line 152, in _generate_response
+    validated_model = response_model.model_validate(json.loads(response.text))
+                      │              │              │    │     │        └ <property object at 0x00000242CD8E6480>
+                      │              │              │    │     └ GenerateContentResponse(candidates=[Candidate(content=Content(parts=[Part(video_metadata=None, thought=None, inline_data=None...
+                      │              │              │    └ <function loads at 0x00000242B8C62B60>
+                      │              │              └ <module 'json' from 'C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13.0-windows-x86_64-none\\Lib\\json\\__init__....
+                      │              └ <classmethod(<function BaseModel.model_validate at 0x00000242BA0418A0>)>
+                      └ <class 'graphiti_core.prompts.extract_edges.ExtractedEdges'>
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\json\__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           │                │      └ '{"edges": [{"relation_type": "HAS_ESCALATED_CONFLICT_WITH", "source_entity_id": 4, "target_entity_id": 5, "fact": "The confl...
+           │                └ <function JSONDecoder.decode at 0x00000242B8C623E0>
+           └ <json.decoder.JSONDecoder object at 0x00000242B8BE2270>
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\json\decoder.py", line 344, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               │    │          │      │  └ '{"edges": [{"relation_type": "HAS_ESCALATED_CONFLICT_WITH", "source_entity_id": 4, "target_entity_id": 5, "fact": "The confl...
+               │    │          │      └ <built-in method match of re.Pattern object at 0x00000242B8C529B0>
+               │    │          └ '{"edges": [{"relation_type": "HAS_ESCALATED_CONFLICT_WITH", "source_entity_id": 4, "target_entity_id": 5, "fact": "The confl...
+               │    └ <function JSONDecoder.raw_decode at 0x00000242B8C62480>
+               └ <json.decoder.JSONDecoder object at 0x00000242B8BE2270>
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\json\decoder.py", line 360, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               │    │         │  └ 0
+               │    │         └ '{"edges": [{"relation_type": "HAS_ESCALATED_CONFLICT_WITH", "source_entity_id": 4, "target_entity_id": 5, "fact": "The confl...
+               │    └ <_json.Scanner object at 0x00000242B8C5BC90>
+               └ <json.decoder.JSONDecoder object at 0x00000242B8BE2270>
+
+json.decoder.JSONDecodeError: Unterminated string starting at: line 1 column 7402 (char 7401)
+
+
+The above exception was the direct cause of the following exception:
+
+
+Traceback (most recent call last):
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\scripts\ingest_gdrive_documents.py", line 269, in <module>
+    asyncio.run(main())
+    │       │   └ <function main at 0x00000242D38D0180>
+    │       └ <function _patch_asyncio.<locals>.run at 0x00000242B64714E0>
+    └ <module 'asyncio' from 'C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13.0-windows-x86_64-none\\Lib\\asyncio\\__i...
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\nest_asyncio.py", line 30, in run
+    return loop.run_until_complete(task)
+           │    │                  └ <Task pending name='Task-1' coro=<main() running at C:\Users\kevin\repos\kev-new-graph-rag\scripts\ingest_gdrive_documents.py...
+           │    └ <function _patch_loop.<locals>.run_until_complete at 0x00000242B8AB9080>
+           └ <ProactorEventLoop running=True closed=False debug=False>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\nest_asyncio.py", line 92, in run_until_complete
+    self._run_once()
+    │    └ <function _patch_loop.<locals>._run_once at 0x00000242B8AB9120>
+    └ <ProactorEventLoop running=True closed=False debug=False>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\nest_asyncio.py", line 133, in _run_once
+    handle._run()
+    │      └ <function Handle._run at 0x00000242B893C860>
+    └ <Handle Task.__wakeup()>
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    │    │            │    │           │    └ <member '_args' of 'Handle' objects>
+    │    │            │    │           └ <Handle Task.__wakeup()>
+    │    │            │    └ <member '_callback' of 'Handle' objects>
+    │    │            └ <Handle Task.__wakeup()>
+    │    └ <member '_context' of 'Handle' objects>
+    └ <Handle Task.__wakeup()>
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\asyncio\tasks.py", line 378, in __wakeup
+    self.__step(exc)
+    │           └ Exception('Failed to parse structured response: Unterminated string starting at: line 1 column 7402 (char 7401)')
+    └ <Task pending name='Task-1' coro=<main() running at C:\Users\kevin\repos\kev-new-graph-rag\scripts\ingest_gdrive_documents.py...
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\asyncio\tasks.py", line 293, in __step
+    self.__step_run_and_handle_result(exc)
+    │                                 └ Exception('Failed to parse structured response: Unterminated string starting at: line 1 column 7402 (char 7401)')
+    └ <Task pending name='Task-1' coro=<main() running at C:\Users\kevin\repos\kev-new-graph-rag\scripts\ingest_gdrive_documents.py...
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\asyncio\tasks.py", line 306, in __step_run_and_handle_result
+    result = coro.throw(exc)
+             │    │     └ Exception('Failed to parse structured response: Unterminated string starting at: line 1 column 7402 (char 7401)')
+             │    └ <method 'throw' of 'coroutine' objects>
+             └ <coroutine object main at 0x00000242D389D8B0>
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\scripts\ingest_gdrive_documents.py", line 251, in main
+    stats = await process_documents(config, ontology_nodes, ontology_edges, args.temp_dir)
+                  │                 │       │               │               │    └ './temp'
+                  │                 │       │               │               └ Namespace(env_file=None, temp_dir='./temp', template='universal')                  │                 │       │               └ [<class 'src.ontology_templates.universal_ontology.Participates'>, <class 'src.ontology_templates.universal_ontology.Located'...
+                  │                 │       └ [<class 'src.ontology_templates.universal_ontology.Person'>, <class 'src.ontology_templates.universal_ontology.Organization'>...
+                  │                 └ IngestionOrchestratorConfig(gdrive=GDriveReaderConfig(credentials_path='C:\\Users\\kevin\\repos\\kev-new-graph-rag\\src\\serv...
+                  └ <function process_documents at 0x00000242D38D00E0>
+
+> File "C:\Users\kevin\repos\kev-new-graph-rag\scripts\ingest_gdrive_documents.py", line 187, in process_documents
+    extraction_results = await graph_extractor.extract(
+                               │               └ <function GraphExtractor.extract at 0x00000242D38C1EE0>
+                               └ <src.graph_extraction.extractor.GraphExtractor object at 0x00000242D3A2BA10>
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\src\graph_extraction\extractor.py", line 195, in extract
+    raise last_error  # Re-raise the last exception after logging
+          └ Exception('Failed to parse structured response: Unterminated string starting at: line 1 column 7402 (char 7401)')
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\src\graph_extraction\extractor.py", line 160, in extract
+    add_episode_result = await self.graphiti_instance.add_episode(
+                               │    │                 └ <function Graphiti.add_episode at 0x00000242D2120A40>
+                               │    └ <graphiti_core.graphiti.Graphiti object at 0x00000242D3A2B4D0>
+                               └ <src.graph_extraction.extractor.GraphExtractor object at 0x00000242D3A2BA10>
+
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\graphiti.py", line 434, in add_episode
+    raise e
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\graphiti.py", line 378, in add_episode
+    (nodes, uuid_map), extracted_edges = await semaphore_gather(
+                                               └ <function semaphore_gather at 0x00000242D1F954E0>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\helpers.py", line 105, in semaphore_gather
+    return await asyncio.gather(*(_wrap_coroutine(coroutine) for coroutine in coroutines))
+                 │       │        │                                           └ (<coroutine object resolve_extracted_nodes at 0x00000242D434C610>, <coroutine object extract_edges at 0x00000242D5748F80>)
+                 │       │        └ <function semaphore_gather.<locals>._wrap_coroutine at 0x00000242D6957D80>
+                 │       └ <function gather at 0x00000242B89F80E0>
+                 └ <module 'asyncio' from 'C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13.0-windows-x86_64-none\\Lib\\asyncio\\__i...
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\asyncio\tasks.py", line 375, in __wakeup
+    future.result()
+    │      └ <method 'result' of '_asyncio.Future' objects>
+    └ <_GatheringFuture finished exception=Exception('Failed to parse structured response: Unterminated string starting at: line 1 ...
+  File "C:\Users\kevin\AppData\Roaming\uv\python\cpython-3.13.0-windows-x86_64-none\Lib\asyncio\tasks.py", line 304, in __step_run_and_handle_result
+    result = coro.send(None)
+             │    └ <method 'send' of 'coroutine' objects>
+             └ <coroutine object semaphore_gather.<locals>._wrap_coroutine at 0x00000242D44E8C70>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\helpers.py", line 103, in _wrap_coroutine
+    return await coroutine
+                 └ <coroutine object extract_edges at 0x00000242D5748F80>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\utils\maintenance\edge_operations.py", line 120, in extract_edges
+    llm_response = await llm_client.generate_response(
+                         │          └ <function GeminiClient.generate_response at 0x00000242D38C1D00>
+                         └ <graphiti_core.llm_client.gemini_client.GeminiClient object at 0x00000242D3A2B770>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\llm_client\gemini_client.py", line 192, in generate_response
+    return await self._generate_response(
+                 │    └ <function GeminiClient._generate_response at 0x00000242D38C1C60>
+                 └ <graphiti_core.llm_client.gemini_client.GeminiClient object at 0x00000242D3A2B770>
+  File "C:\Users\kevin\repos\kev-new-graph-rag\.venv\Lib\site-packages\graphiti_core\llm_client\gemini_client.py", line 157, in _generate_response
+    raise Exception(f'Failed to parse structured response: {e}') from e
+
+Exception: Failed to parse structured response: Unterminated string starting at: line 1 column 7402 (char 7401)
+2025-06-17 14:27:16 | INFO     | Processing file: ai_research_sample.txt (1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK) of type text/plain
+2025-06-17 14:27:16 | INFO     | Downloading Drive file_id '1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK' to 'C:\Users\kevin\repos\kev-new-graph-rag\temp\1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK_ai_research_sample.txt'
+2025-06-17 14:27:18 | INFO     | Successfully downloaded file_id '1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK' to 'C:\Users\kevin\repos\kev-new-graph-rag\temp\1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK_ai_research_sample.txt'
+2025-06-17 14:27:18 | INFO     | Parsing ai_research_sample.txt with LlamaParse using async method...
+2025-06-17 14:27:18 | INFO     | Async parsing document file: 1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK_ai_research_sample.txt with LlamaParse
+Started parsing the file under job_id dbe00784-2076-422d-b67c-fefabeeddf79
+2025-06-17 14:27:25 | INFO     | Successfully async parsed 3 pages from 1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK_ai_research_sample.txt.
+2025-06-17 14:27:25 | INFO     | Ingesting ai_research_sample.txt to ChromaDB...
+2025-06-17 14:27:25 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: '# Large Language Models in Code Generation: A Comprehensive Analysis
+#...'
+2025-06-17 14:27:25 | INFO     | Successfully received embedding. Truncated representation: [-0.0025482058990746737, 0.004305016715079546, 0.008521518670022488, -0.05687326565384865, -0.008582...
+2025-06-17 14:27:25 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: 'understanding
+- **C++**: All models struggled with memory management a...'
+2025-06-17 14:27:26 | INFO     | Successfully received embedding. Truncated representation: [-0.00872887298464775, 0.0038868431001901627, 0.0040398938581347466, -0.06405352056026459, -0.012425...
+2025-06-17 14:27:26 | INFO     | Requesting Gemini embedding via Vertex AI for model: 'gemini-embedding-001', text: 'capabilities. While current models show impressive performance, challe...'
+2025-06-17 14:27:26 | INFO     | Successfully received embedding. Truncated representation: [-0.027438810095191002, 0.011369310319423676, 0.013348602689802647, -0.06697044521570206, 0.00101996...
+2025-06-17 14:27:27 | INFO     | Successfully ingested 3 documents into ChromaDB
+2025-06-17 14:27:27 | INFO     | Extracting graph data from ai_research_sample.txt using template for Neo4j...
+2025-06-17 14:27:27 | INFO     | Async parsing document file: 1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK_ai_research_sample.txt with LlamaParse
+Started parsing the file under job_id 35f46ecb-1c17-4c1c-9ad8-1c390be7daae
+2025-06-17 14:27:32 | INFO     | Successfully async parsed 3 pages from 1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK_ai_research_sample.txt.
+2025-06-17 14:27:32 | INFO     | Starting graph extraction for group_id: 1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK with prefix: ai_research_sample.txt
+2025-06-17 14:27:32 | INFO     | Calling graphiti_instance.add_episode for episode: ai_research_sample.txt_4921d311-9673-456a-8475-000235d9a5292025-06-17 14:27:32 | INFO     | Calling add_episode with combined entity_types: ['Person', 'Organization', 'Location', 'Event', 'Technology',
+'Content', 'Topic', 'Resource', 'Agreement', 'Participates', 'Located', 'Creates', 'Uses', 'Supports', 'Opposes', 'Discusses', 'Controls', 'Collaborates', 'Influences']
+2025-06-17 14:30:24 | INFO     | Successfully extracted data for episode: ai_research_sample.txt_4921d311-9673-456a-8475-000235d9a529. Nodes: 49, Edges: 37
+2025-06-17 14:30:24 | INFO     | Graph extraction for ai_research_sample.txt complete. Summary: 49 nodes, 37 edges extracted
+2025-06-17 14:30:24 | INFO     | Successfully processed ai_research_sample.txt (ID: 1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK)
+2025-06-17 14:30:24 | INFO     | Document ingestion complete! Summary: 1 processed, 2 failed, 0 skipped
+2025-06-17 14:30:24 | INFO     | Closing GraphExtractor connection...
+2025-06-17 14:30:24 | INFO     | Closing Graphiti Neo4j driver connection.
+2025-06-17 14:30:26 | INFO     | Graphiti Neo4j driver connection closed.
+2025-06-17 14:30:26 | INFO     | GraphExtractor connection closed.
+laborates', 'Influences']
+2025-06-17 14:30:24 | INFO     | Successfully extracted data for episode: ai_research_sample.txt_4921d311-9673-456a-8475-000235d9a529. Nodes: 49, Edges: 37
+2025-06-17 14:30:24 | INFO     | Graph extraction for ai_research_sample.txt complete. Summary: 49 nodes, 37 edges extracted
+2025-06-17 14:30:24 | INFO     | Successfully processed ai_research_sample.txt (ID: 1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK)
+2025-06-17 14:30:24 | INFO     | Document ingestion complete! Summary: 1 processed, 2 failed, 0 skipped
+2025-06-17 14:30:24 | INFO     | Closing GraphExtractor connection...
+2025-06-17 14:30:24 | INFO     | Closing Graphiti Neo4j driver connection.
+2025-06-17 14:30:26 | INFO     | Graphiti Neo4j driver connection closed.
+2025-06-17 14:30:26 | INFO     | GraphExtractor connection closed.
+2025-06-17 14:30:24 | INFO     | Successfully extracted data for episode: ai_research_sample.txt_4921d311-9673-456a-8475-000235d9a529. Nodes: 49, Edges: 37
+2025-06-17 14:30:24 | INFO     | Graph extraction for ai_research_sample.txt complete. Summary: 49 nodes, 37 edges extracted
+2025-06-17 14:30:24 | INFO     | Successfully processed ai_research_sample.txt (ID: 1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK)
+2025-06-17 14:30:24 | INFO     | Document ingestion complete! Summary: 1 processed, 2 failed, 0 skipped
+2025-06-17 14:30:24 | INFO     | Closing GraphExtractor connection...
+2025-06-17 14:30:24 | INFO     | Closing Graphiti Neo4j driver connection.
+2025-06-17 14:30:26 | INFO     | Graphiti Neo4j driver connection closed.
+2025-06-17 14:30:26 | INFO     | GraphExtractor connection closed.
+9, Edges: 37
+2025-06-17 14:30:24 | INFO     | Graph extraction for ai_research_sample.txt complete. Summary: 49 nodes, 37 edges extracted
+2025-06-17 14:30:24 | INFO     | Successfully processed ai_research_sample.txt (ID: 1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK)
+2025-06-17 14:30:24 | INFO     | Document ingestion complete! Summary: 1 processed, 2 failed, 0 skipped
+2025-06-17 14:30:24 | INFO     | Closing GraphExtractor connection...
+2025-06-17 14:30:24 | INFO     | Closing Graphiti Neo4j driver connection.
+2025-06-17 14:30:26 | INFO     | Graphiti Neo4j driver connection closed.
+2025-06-17 14:30:26 | INFO     | GraphExtractor connection closed.
+2025-06-17 14:30:24 | INFO     | Graph extraction for ai_research_sample.txt complete. Summary: 49 nodes, 37 edges extracted
+2025-06-17 14:30:24 | INFO     | Successfully processed ai_research_sample.txt (ID: 1ttbOb5ilRwX_hl1KdzATvcA9eQu9yycK)
+2025-06-17 14:30:24 | INFO     | Document ingestion complete! Summary: 1 processed, 2 failed, 0 skipped
+2025-06-17 14:30:24 | INFO     | Closing GraphExtractor connection...
+2025-06-17 14:30:24 | INFO     | Closing Graphiti Neo4j driver connection.
+2025-06-17 14:30:26 | INFO     | Graphiti Neo4j driver connection closed.
+2025-06-17 14:30:26 | INFO     | GraphExtractor connection closed.
+2025-06-17 14:30:24 | INFO     | Document ingestion complete! Summary: 1 processed, 2 failed, 0 skipped
+2025-06-17 14:30:24 | INFO     | Closing GraphExtractor connection...
+2025-06-17 14:30:24 | INFO     | Closing Graphiti Neo4j driver connection.
+2025-06-17 14:30:26 | INFO     | Graphiti Neo4j driver connection closed.
+2025-06-17 14:30:26 | INFO     | GraphExtractor connection closed.
+
+Ingestion Summary:
+  Total files found:   3
+2025-06-17 14:30:26 | INFO     | GraphExtractor connection closed.
+
+Ingestion Summary:
+  Total files found:   3
+
+Ingestion Summary:
+  Total files found:   3
+  Successfully processed: 1
+  Total files found:   3
+  Successfully processed: 1
+  Failed:               2
+  Successfully processed: 1
+  Failed:               2
+  Failed:               2
+  Skipped:              0
+
+WARNING: 2 files failed processing. Check the logs for details.
+PS C:\Users\kevin\repos\kev-new-graph-rag> uv run python scripts/ingest_gdrive_documents.py --template universal
+
+
+
+
+
+
+
+  Skipped:              0
+
+WARNING: 2 files failed processing. Check the logs for details.
+PS C:\Users\kevin\repos\kev-new-graph-rag> uv run python scripts/ingest_gdrive_documents.py --template universal
+
+
+
+
+
+
+  Skipped:              0
+
+WARNING: 2 files failed processing. Check the logs for details.
+PS C:\Users\kevin\repos\kev-new-graph-rag> uv run python scripts/ingest_gdrive_documents.py --template universal
+
+
+  Skipped:              0
+
+WARNING: 2 files failed processing. Check the logs for details.
+PS C:\Users\kevin\repos\kev-new-graph-rag> uv run python scripts/ingest_gdrive_documents.py --template universal
+
+
