@@ -130,12 +130,26 @@ class GraphExtractor:
         """
         logger.info(f"Starting graph extraction for group_id: {group_id} with prefix: {episode_name_prefix}")
 
-        # Combine node and edge models into a single dictionary for entity_types
-        # This is required for the version of graphiti-core being used
-        combined_ontology = ontology_nodes + ontology_edges
-        entity_types_dict = {model.__name__: model for model in combined_ontology}
+        # Create dictionaries for entity and edge types with minimal __doc__ strings
+        # to avoid bloating LLM prompts.
+        def create_temp_ontology_dict(ontology_list: List[Type[BaseModel]]) -> dict:
+            temp_dict = {}
+            for model_type in ontology_list:
+                # Create a new, temporary type that inherits from the original model_type
+                # but has a minimal __doc__ string (just the class name).
+                temp_model = type(
+                    model_type.__name__,
+                    (model_type,),
+                    {'__doc__': model_type.__name__}
+                )
+                temp_dict[model_type.__name__] = temp_model
+            return temp_dict
 
-        logger.debug(f"Ontology types for extraction: {list(entity_types_dict.keys())}")
+        entity_types_dict = create_temp_ontology_dict(ontology_nodes)
+        edge_types_dict = create_temp_ontology_dict(ontology_edges)
+
+        logger.debug(f"Ontology Node Types for extraction: {list(entity_types_dict.keys())}")
+        logger.debug(f"Ontology Edge Types for extraction: {list(edge_types_dict.keys())}")
 
         episode_name = f"{episode_name_prefix}_{uuid.uuid4()}"
         episode_source_description = "Document processed for KG extraction via GraphExtractor"
@@ -150,8 +164,6 @@ class GraphExtractor:
             # For compatibility, we still store the edge map separately if needed elsewhere
             self.ontology_edge_type_map = {edge_model.__name__: edge_model for edge_model in ontology_edges}
 
-            logger.info(f"Calling add_episode with combined entity_types: {list(entity_types_dict.keys())}")
-
             # Add retry logic for NoneType errors
             max_retries = 1  # Try once more after initial failure
             retry_count = 0
@@ -162,7 +174,8 @@ class GraphExtractor:
                         episode_body=text_content,
                         source_description=episode_source_description,
                         reference_time=datetime.utcnow(),
-                        entity_types=entity_types_dict, # Pass combined dictionary
+                        entity_types=entity_types_dict,  # Pass ONLY node types
+                        edge_types=edge_types_dict,      # Pass ONLY edge types
                         group_id=group_id
                     )
                     logger.info(f"Successfully extracted data for episode: {episode_name}. Nodes: {len(add_episode_result.nodes)}, Edges: {len(add_episode_result.edges)}")

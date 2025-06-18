@@ -229,8 +229,13 @@ async def main():
     parser.add_argument("--env-file", type=str, help="Path to .env file")
     parser.add_argument("--temp-dir", type=str, default="./temp", help="Path for temporary files")
     parser.add_argument("--template", type=str, default="universal", help="Name of the ontology template to use (e.g., 'universal', 'generic', 'financial_report').")
-    parser.add_argument("--llm-model", type=str, default="flash", choices=["pro", "flash"], help="The Gemini model to use for graph extraction ('pro' or 'flash').")
-    
+    parser.add_argument(
+        "--llm-model",
+        type=str,
+        choices=["pro", "flash"],
+        default="pro",
+        help="The Gemini LLM model to use for graph extraction (pro or flash). Default is pro."
+    )
     args = parser.parse_args()
     
     try:
